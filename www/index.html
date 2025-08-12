@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="css/index.css">
+
+    <title>Sandfall Tetris</title>
+</head>
+<body>
+    <div id="mainMenuScreen" class="screen active">
+        <div class="screen-content main-menu">
+            <div class="logo">
+                <span class="sand">Sand</span><span class="tetris">fall</span><br>
+                <span class="tetris">Tetris</span>
+            </div>
+
+            <h3>Select difficulty:</h3>
+            <div class="difficulty-options">
+                <button class="difficulty-btn" id="easyBtn" data-level="1">Easy</button>
+                <button class="difficulty-btn active" id="mediumBtn" data-level="1">Normal</button>
+                <button class="difficulty-btn" id="hardBtn" data-level="10">Hard</button>
+            </div>
+
+            <div class="button-group">
+                <button class="action-btn" id="startGameBtn">Start Game</button>
+                <button class="action-btn" id="settingsBtn">Settings</button>
+            </div>
+
+            <div class="highscores-list">
+                <h4>Records 🏆</h4>
+                <ol id="highscoresList">
+                    </ol>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsScreen" class="screen">
+        <div class="screen-content settings-menu">
+            <h2>Settings</h2>
+            <div class="settings-options">
+                <div class="setting-item">
+                    <span>Music</span>
+                    <div id="musicToggle" class="toggle-switch"></div>
+                </div>
+                <div class="setting-item">
+                    <span>Sound Effects</span>
+                    <div id="soundToggle" class="toggle-switch"></div>
+                </div>
+                <div class="setting-item">
+                    <span>Vibration</span>
+                    <div id="vibrationToggle" class="toggle-switch"></div>
+                </div>
+            </div>
+            <div class="button-group">
+                <button class="action-btn" id="saveSettingsBtn">Save</button>
+                <button class="action-btn" id="backToMainFromSettings">Back</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pauseScreen" class="screen">
+        <div class="screen-content pause-screen">
+            <h2>Pause</h2>
+            <div class="button-group">
+                <button class="action-btn" id="resumeBtn">Continue</button>
+                <button class="action-btn" id="newGameBtn">New Game</button>
+                <button class="action-btn" id="exitToMainBtn">Exit to menu</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-container" id="gameContainer">
+        <button class="pause-btn" id="pauseBtn">❚❚</button>
+        <div class="ui-panel">
+            <div class="score-info">
+                <div>Score: <span id="score">0</span></div>
+                <div>Level: <span id="level">1</span></div>
+                <div>Destroyed: <span id="removed">0</span></div>
+            </div>
+            <div class="next-piece">
+                <canvas id="nextCanvas" width="80" height="80"></canvas>
+            </div>
+        </div>
+        <div class="game-wrapper">
+            <div class="game-area" id="gameArea">
+                <canvas id="gameCanvas"></canvas>
+                <div id="gameOver" class="game-over">
+                    <h2>Game Over!</h2>
+                    <p>Final score: <span id="finalScore">0</span></p>
+                    <button class="action-btn" id="restartBtn">New Game</button>
+                    <button class="action-btn" id="exitFromGameOverBtn">Menu</button>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="controls" id="controls">
+            <button class="control-btn rotate-btn" id="rotateBtn">↻</button>
+            <button class="control-btn left-btn" id="leftBtn">←</button>
+            <button class="control-btn down-btn" id="downBtn">↓</button>
+            <button class="control-btn right-btn" id="rightBtn">→</button>
+        </div>
+    </div>
+
+    <script src="js/index.js"></script>
+</body>
+</html>
