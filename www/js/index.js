@@ -3,9 +3,9 @@
 // ====================================================================
 
 // ===== Константы и переменные =====
-const BLOCK_W = 10, BLOCK_H = 20;
-const PPB = 4; // particles per block
-const PIXEL = 2; // pixel scale per particle
+const BLOCK_W = 8, BLOCK_H = 16;
+const PPB = 8; // particles per block
+const PIXEL = 4; // pixel scale per particle
 const SAND_W = BLOCK_W * PPB;
 const SAND_H = BLOCK_H * PPB;
 
@@ -55,7 +55,9 @@ let lastSwipeTime = 0;
 let swipeCooldown = 200;
 let startX = 0, startY = 0;
 let gameArea;
-
+// ===== Переменные для рекламы (новые) =====
+let adTimer = 5;
+let adIntervalId = null;
 // ===== Переменные для обратного отсчета =====
 let countdown = 0;
 let lastCountdownTime = 0;
@@ -84,7 +86,35 @@ const highscoresList = document.getElementById('highscoresList');
 const easyBtn = document.getElementById('easyBtn');
 const mediumBtn = document.getElementById('mediumBtn');
 const hardBtn = document.getElementById('hardBtn');
+// ===== DOM Elements (new) =====
+const adScreen = document.getElementById('adScreen');
+const closeAdBtn = document.getElementById('closeAdBtn');
+const adTimerEl = document.getElementById('ad-timer');
 
+
+
+
+// ===== Настройка AdMob interstitial =====
+document.addEventListener('deviceready', () => {
+    console.log("Устройство готово. Начинаем настройку AdMob.");
+
+    // Проверяем, что AdMob доступен
+    if (window.admob && admob.interstitial) {
+        console.log("Плагин AdMob доступен.");
+        admob.interstitial.config({
+            id: 'ca-app-pub-4411114348896099~1525807767', // Замените на ваш Ad Unit ID
+            isTesting: true,            // true для тестирования, false для реальных показов
+            autoShow: false             // Не показывать автоматически, будем показывать вручную
+        });
+        admob.interstitial.prepare();
+    } else {
+        console.log("Плагин AdMob не найден или недоступен.");
+    }
+
+    // Дополнительный код вашего приложения может идти здесь...
+    // Например, инициализация игрового движка или других функций.
+
+}, false);
 // ====================================================================
 // =================== АУДИОЛОГИКА (ОБНОВЛЁННАЯ) =====================
 // ====================================================================
@@ -438,9 +468,10 @@ function getCurrentFallInterval() {
 function spawnPiece() {
     activePiece = nextPiece;
     nextPiece = new Piece();
+    // ИСПРАВЛЕНО: Убрал вызов showGameOver() отсюда.
+    // Если игра окончена, это обрабатывает главный цикл loop()
     if (activePiece && !activePiece._canPlaceShape(activePiece.shape, activePiece.x, activePiece.y)) {
         gameOver = true;
-        showGameOver();
     }
 }
 
@@ -554,8 +585,16 @@ function drawNextPiece() {
 
 function draw() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle = 'rgba(10,10,12,1)';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+
+    function draw() {
+        // Сначала фон
+        ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+
+        // Потом — всё, что уже есть в твоей функции отрисовки
+        drawGrid();
+        drawPieces();
+    }
 
     drawSand();
     drawActivePiece();
@@ -715,7 +754,7 @@ function togglePause() {
 function countdownLoop(now) {
     if (countdown <= 0) {
         // Установка lastTime для плавного старта после паузы
-        lastTime = now / 1000;
+        lastTime = now / 800;
         // Правильный перезапуск основного игрового цикла
         requestAnimationFrame(loop);
         return;
@@ -733,8 +772,11 @@ function countdownLoop(now) {
 // =========================================================================================
 
 function showGameOver() {
+    showAd(); // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
     document.getElementById('gameOver').style.display = 'flex';
     document.getElementById('finalScore').textContent = score;
+    // ИСПРАВЛЕНО: Вызов saveHighscore() перенесён сюда,
+    // чтобы он вызывался только один раз при завершении игры
     saveHighscore(score);
 }
 
@@ -774,7 +816,10 @@ function backToMain() {
 
 // ===== Главный цикл =====
 function loop(now) {
-    if (gameOver || paused) return;
+    if (paused) {
+        // Если игра на паузе, ничего не делаем и не вызываем loop() снова
+        return;
+    }
 
     const t = now / 1000;
     if (!lastTime) lastTime = t;
@@ -784,8 +829,13 @@ function loop(now) {
     update(dt);
     draw();
 
-    if (!gameOver) requestAnimationFrame(loop);
-    else showGameOver();
+    // ИСПРАВЛЕНО: Переместил проверку gameOver в конец цикла.
+    // Теперь, когда gameOver становится true, мы один раз вызываем showGameOver() и останавливаем цикл.
+    if (!gameOver) {
+        requestAnimationFrame(loop);
+    } else {
+        showGameOver();
+    }
 }
 
 // ===== Загрузка / init =====
@@ -858,5 +908,41 @@ function initEverything() {
         displayHighscores();
     });
 }
+
+function showAd(callback) {
+    adScreen.classList.remove('hidden');
+    adTimer = 5;
+    adTimerEl.textContent = adTimer;
+    closeAdBtn.classList.add('hidden');
+
+    adIntervalId = setInterval(() => {
+        adTimer--;
+        adTimerEl.textContent = adTimer;
+        if (adTimer <= 0) {
+            clearInterval(adIntervalId);
+            closeAdBtn.classList.remove('hidden');
+        }
+    }, 1000);
+
+    // !!! ВНИМАНИЕ: AdMob будет работать только в мобильном приложении (Cordova/PhoneGap)
+    if (typeof admob !== 'undefined' && admob.interstitial) {
+        // Если AdMob доступен, показываем настоящую рекламу
+        admob.interstitial.show();
+        // При закрытии рекламы вызываем колбэк и готовим следующую
+        document.addEventListener('onAdDismiss', () => {
+            adScreen.classList.add('hidden');
+            if (callback) callback();
+            admob.interstitial.prepare();
+        }, { once: true });
+    } else {
+        // Фолбэк: если AdMob не доступен, просто ждем таймер
+        closeAdBtn.onclick = () => {
+            clearInterval(adIntervalId);
+            adScreen.classList.add('hidden');
+            if (callback) callback();
+        };
+    }
+}
+
 
 document.addEventListener('DOMContentLoaded', initEverything);

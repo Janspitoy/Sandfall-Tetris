@@ -4,48 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="css/index.css">
-
     <title>Sandfall Tetris</title>
 </head>
 <body>
+    <!-- Main Menu Screen -->
     <div id="mainMenuScreen" class="screen active">
         <div class="screen-content main-menu">
             <div class="logo">
                 <span class="sand">Sand</span><span class="tetris">fall</span><br>
                 <span class="tetris">Tetris</span>
             </div>
-
             <h3>Select difficulty:</h3>
             <div class="difficulty-options">
                 <button class="difficulty-btn" id="easyBtn" data-level="1">Easy</button>
-                <button class="difficulty-btn active" id="mediumBtn" data-level="1">Normal</button>
+                <button class="difficulty-btn active" id="mediumBtn" data-level="3">Normal</button>
                 <button class="difficulty-btn" id="hardBtn" data-level="10">Hard</button>
             </div>
-
             <div class="button-group">
                 <button class="action-btn" id="startGameBtn">Start Game</button>
                 <button class="action-btn" id="settingsBtn">Settings</button>
             </div>
-
             <div class="highscores-list">
                 <h4>Records 🏆</h4>
-                <ol id="highscoresList">
-                    </ol>
+                <ol id="highscoresList"></ol>
             </div>
         </div>
     </div>
 
+    <!-- Settings Screen -->
     <div id="settingsScreen" class="screen">
         <div class="screen-content settings-menu">
             <h2>Settings</h2>
             <div class="settings-options">
                 <div class="setting-item">
                     <span>Music</span>
-                    <div id="musicToggle" class="toggle-switch"></div>
+                    <div id="musicToggle" class="toggle-switch active"></div>
                 </div>
                 <div class="setting-item">
                     <span>Sound Effects</span>
-                    <div id="soundToggle" class="toggle-switch"></div>
+                    <div id="soundToggle" class="toggle-switch active"></div>
                 </div>
                 <div class="setting-item">
                     <span>Vibration</span>
@@ -59,6 +56,7 @@
         </div>
     </div>
 
+    <!-- Pause Screen -->
     <div id="pauseScreen" class="screen">
         <div class="screen-content pause-screen">
             <h2>Pause</h2>
@@ -70,6 +68,7 @@
         </div>
     </div>
 
+    <!-- Game Container -->
     <div class="game-container" id="gameContainer">
         <button class="pause-btn" id="pauseBtn">❚❚</button>
         <div class="ui-panel">
@@ -84,7 +83,7 @@
         </div>
         <div class="game-wrapper">
             <div class="game-area" id="gameArea">
-                <canvas id="gameCanvas"></canvas>
+                <canvas id="gameCanvas" width="200" height="400"></canvas>
                 <div id="gameOver" class="game-over">
                     <h2>Game Over!</h2>
                     <p>Final score: <span id="finalScore">0</span></p>
@@ -93,8 +92,6 @@
                 </div>
             </div>
         </div>
-
-
         <div class="controls" id="controls">
             <button class="control-btn rotate-btn" id="rotateBtn">↻</button>
             <button class="control-btn left-btn" id="leftBtn">←</button>
@@ -103,6 +100,14 @@
         </div>
     </div>
 
+    <!-- Ad Screen -->
+    <div id="adScreen" class="screen hidden">
+        <div class="ad-modal">
+            <h2 class="text-2xl font-bold mb-4">Пожалуйста, подождите...</h2>
+            <p class="text-lg">Реклама будет показана через <span id="ad-timer">5</span> сек.</p>
+            <button id="closeAdBtn" class="btn mt-4 hidden">Пропустить</button>
+        </div>
+    </div>
     <script src="js/index.js"></script>
 </body>
 </html>
