@@ -1,11 +1,6 @@
-// ====================================================================
-// ========================= КОНФИГУРАЦИЯ ============================
-// ====================================================================
-
-// ===== Константы и переменные =====
 const BLOCK_W = 8, BLOCK_H = 16;
-const PPB = 8; // particles per block
-const PIXEL = 4; // pixel scale per particle
+const PPB = 8;
+const PIXEL = 4;
 const SAND_W = BLOCK_W * PPB;
 const SAND_H = BLOCK_H * PPB;
 
@@ -40,29 +35,25 @@ let gameOver = false;
 let paused = false;
 let lastTime = 0;
 let difficultyLevel = 1;
-
-// === АУДИО: Обновленная конфигурация ===
 let soundOn = true;
 let musicOn = true;
 let musicGainNode, sfxGainNode;
-// ==========================================
-
 let vibrationOn = true;
 let audioContext;
 let music, soundEffects = {};
 let isMusicPlaying = false;
+let musicSource = null; // Store the music source for stopping
 let lastSwipeTime = 0;
 let swipeCooldown = 200;
 let startX = 0, startY = 0;
 let gameArea;
-// ===== Переменные для рекламы (новые) =====
 let adTimer = 5;
 let adIntervalId = null;
-// ===== Переменные для обратного отсчета =====
 let countdown = 0;
 let lastCountdownTime = 0;
+let audioUnlocked = false; // Флаг для отслеживания разблокировки аудио
+let clearHighscoresOn = false; // Флаг для отслеживания чекбокса "Clear Highscores"
 
-// ===== DOM Elements =====
 const mainMenuScreen = document.getElementById('mainMenuScreen');
 const settingsScreen = document.getElementById('settingsScreen');
 const pauseScreen = document.getElementById('pauseScreen');
@@ -75,6 +66,7 @@ const backToMainFromSettingsBtn = document.getElementById('backToMainFromSetting
 const musicToggle = document.getElementById('musicToggle');
 const soundToggle = document.getElementById('soundToggle');
 const vibrationToggle = document.getElementById('vibrationToggle');
+const clearHighscoresToggle = document.getElementById('clearHighscoresToggle'); // Новый чекбокс
 
 const pauseBtn = document.getElementById('pauseBtn');
 const resumeBtn = document.getElementById('resumeBtn');
@@ -86,63 +78,39 @@ const highscoresList = document.getElementById('highscoresList');
 const easyBtn = document.getElementById('easyBtn');
 const mediumBtn = document.getElementById('mediumBtn');
 const hardBtn = document.getElementById('hardBtn');
-// ===== DOM Elements (new) =====
 const adScreen = document.getElementById('adScreen');
 const closeAdBtn = document.getElementById('closeAdBtn');
 const adTimerEl = document.getElementById('ad-timer');
 
-
-
-
 // ===== Настройка AdMob interstitial =====
-document.addEventListener('deviceready', () => {
-    console.log("Устройство готово. Начинаем настройку AdMob.");
-
-    // Проверяем, что AdMob доступен
+function initAdMob() {
     if (window.admob && admob.interstitial) {
         console.log("Плагин AdMob доступен.");
         admob.interstitial.config({
-            id: 'ca-app-pub-4411114348896099~1525807767', // Замените на ваш Ad Unit ID
-            isTesting: true,            // true для тестирования, false для реальных показов
-            autoShow: false             // Не показывать автоматически, будем показывать вручную
+            id: 'ca-app-pub-4411114348896099~1525807767',
+            isTesting: false,
+            autoShow: false
         });
         admob.interstitial.prepare();
     } else {
         console.log("Плагин AdMob не найден или недоступен.");
     }
-
-    // Дополнительный код вашего приложения может идти здесь...
-    // Например, инициализация игрового движка или других функций.
-
-}, false);
-// ====================================================================
-// =================== АУДИОЛОГИКА (ОБНОВЛЁННАЯ) =====================
-// ====================================================================
+}
 
 function createAudioContext() {
     if (audioContext) return;
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Создание узлов усиления для управления громкостью
     musicGainNode = audioContext.createGain();
     sfxGainNode = audioContext.createGain();
 
-    // Подключение к основному выходу
     musicGainNode.connect(audioContext.destination);
     sfxGainNode.connect(audioContext.destination);
 
-    // Установка начальных значений громкости
-    // Музыка 50%
     musicGainNode.gain.value = 0.5;
-    // Звуки на 30% громче музыки
     sfxGainNode.gain.value = 0.5 * 1.3;
 }
 
-/**
- * Асинхронная функция-помощник для загрузки и декодирования аудиофайла.
- * @param {string} url - URL-адрес аудиофайла.
- * @returns {Promise<AudioBuffer>} - Промис, который разрешается в AudioBuffer.
- */
 async function loadAudio(url) {
     if (!audioContext) createAudioContext();
     const response = await fetch(url);
@@ -150,18 +118,11 @@ async function loadAudio(url) {
     return audioContext.decodeAudioData(arrayBuffer);
 }
 
-/**
- * Асинхронная функция для инициализации аудиосистемы.
- * Она создает AudioContext и загружает все необходимые звуковые файлы и музыку.
- */
 async function initAudio() {
     try {
         createAudioContext();
         console.log("Начало загрузки аудиофайлов...");
 
-        // === АУДИО: Загрузка аудиофайлов. ===
-        // Замените эти URL на реальные, если они у вас есть
-        // const tonejs = await import('https://cdcdcdn.jsdelivr.net/npm/tone@14.7.71/build/Tone.js');
         music = await loadAudio('audio/music.mp3');
         soundEffects.fall = await loadAudio('audio/fall.wav');
         soundEffects.clear = await loadAudio('audio/clear.wav');
@@ -177,7 +138,6 @@ function playSound(buffer) {
     if (!soundOn || !buffer) return;
     const source = audioContext.createBufferSource();
     source.buffer = buffer;
-    // Подключение к узлу усиления для звуковых эффектов
     source.connect(sfxGainNode);
     source.start(0);
 }
@@ -185,19 +145,22 @@ function playSound(buffer) {
 function playMusic(buffer) {
     if (isMusicPlaying || !musicOn || !buffer) return;
     isMusicPlaying = true;
-    const source = audioContext.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-    // Подключение к узлу усиления для музыки
-    source.connect(musicGainNode);
-    source.start(0);
+    musicGainNode.gain.value = 0.5;
+    musicSource = audioContext.createBufferSource();
+    musicSource.buffer = buffer;
+    musicSource.loop = true;
+    musicSource.connect(musicGainNode);
+    musicSource.start(0);
 }
 
 function stopMusic() {
-    // This is a simplified stop. In a real app, you would need to store the source node
-    // to stop it gracefully. For this example, we just set the flag.
+    if (!isMusicPlaying) return;
     isMusicPlaying = false;
-    if (musicGainNode) musicGainNode.gain.value = 0; // Mute it
+    if (musicSource) {
+        musicSource.stop();
+        musicSource = null;
+    }
+    musicGainNode.gain.value = 0;
 }
 
 function playVibration() {
@@ -206,25 +169,39 @@ function playVibration() {
     }
 }
 
-// ====================================================================
-// ==================== ОСТАЛЬНОЙ КОД ИГРЫ ============================
-// ====================================================================
-
-// ===== Local Storage for Highscores =====
+// --- Сохранение, загрузка и удаление highscores ---
 function getHighscores() {
-    const highscores = localStorage.getItem('sandfallHighscores');
-    return highscores ? JSON.parse(highscores) : [];
+    return new Promise(resolve => {
+        if (window.NativeStorage) {
+            NativeStorage.getItem('sandfallHighscores',
+                (obj) => resolve(obj || []),
+                () => resolve([])
+            );
+        } else {
+            const highscores = localStorage.getItem('sandfallHighscores');
+            resolve(highscores ? JSON.parse(highscores) : []);
+        }
+    });
 }
 
 function saveHighscore(score) {
-    const highscores = getHighscores();
-    highscores.push({ score, date: new Date().toLocaleDateString() });
-    highscores.sort((a, b) => b.score - a.score);
-    localStorage.setItem('sandfallHighscores', JSON.stringify(highscores.slice(0, 10)));
+    getHighscores().then(highscores => {
+        highscores.push({ score, date: new Date().toLocaleDateString() });
+        highscores.sort((a, b) => b.score - a.score);
+        const topScores = highscores.slice(0, 10);
+        if (window.NativeStorage) {
+            NativeStorage.setItem('sandfallHighscores', topScores,
+                () => console.log('Highscores saved to NativeStorage'),
+                (error) => console.error('Error saving highscores:', error)
+            );
+        } else {
+            localStorage.setItem('sandfallHighscores', JSON.stringify(topScores));
+        }
+    });
 }
 
-function displayHighscores() {
-    const highscores = getHighscores();
+async function displayHighscores() {
+    const highscores = await getHighscores();
     highscoresList.innerHTML = '';
     if (highscores.length === 0) {
         highscoresList.innerHTML = '<p style="text-align:center; padding: 10px;">No records yet.</p>';
@@ -240,7 +217,86 @@ function displayHighscores() {
     }
 }
 
-// ===== Утилиты =====
+async function clearHighscores() {
+    if (window.NativeStorage) {
+        NativeStorage.remove('sandfallHighscores',
+            () => {
+                console.log('Highscores cleared from NativeStorage');
+                displayHighscores();
+            },
+            (error) => console.error('Error clearing highscores:', error)
+        );
+    } else {
+        localStorage.removeItem('sandfallHighscores');
+        displayHighscores();
+    }
+}
+
+// --- Сохранение и загрузка настроек (с использованием NativeStorage) ---
+function saveSettings() {
+    const settings = {
+        musicOn,
+        soundOn,
+        vibrationOn,
+        difficultyLevel
+    };
+
+    if (window.NativeStorage) {
+        NativeStorage.setItem('sandfallSettings', settings,
+            () => console.log('Settings saved to NativeStorage'),
+            (error) => console.error('Error saving settings:', error)
+        );
+    } else {
+        localStorage.setItem('sandfallSettings', JSON.stringify(settings));
+    }
+}
+
+async function loadSettings() {
+    return new Promise(resolve => {
+        if (window.NativeStorage) {
+            NativeStorage.getItem('sandfallSettings',
+                (settings) => {
+                    if (settings) {
+                        musicOn = settings.musicOn;
+                        soundOn = settings.soundOn;
+                        vibrationOn = settings.vibrationOn;
+                        difficultyLevel = settings.difficultyLevel;
+                    }
+                    resolve();
+                },
+                () => resolve()
+            );
+        } else {
+            const settings = JSON.parse(localStorage.getItem('sandfallSettings'));
+            if (settings) {
+                musicOn = settings.musicOn;
+                soundOn = settings.soundOn;
+                vibrationOn = settings.vibrationOn;
+                difficultyLevel = settings.difficultyLevel;
+            }
+            resolve();
+        }
+    });
+}
+
+function applySettingsToUI() {
+    musicToggle.classList.toggle('on', musicOn);
+    soundToggle.classList.toggle('on', soundOn);
+    vibrationToggle.classList.toggle('on', vibrationOn);
+
+    const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+    difficultyButtons.forEach(btn => {
+        btn.classList.remove('active');
+        if (parseInt(btn.dataset.level) === difficultyLevel) {
+            btn.classList.add('active');
+        }
+    });
+
+    if (sfxGainNode) {
+        sfxGainNode.gain.value = soundOn ? 0.5 * 1.3 : 0;
+    }
+}
+
 function random(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
@@ -255,7 +311,6 @@ function rotateMatrixCW(mat) {
     return res;
 }
 
-// ===== Сетка =====
 function initGrid() {
     grid = Array.from({length: SAND_H}, () => Array.from({length: SAND_W}, () => null));
 }
@@ -289,7 +344,6 @@ function fillRegion(x0,y0,w,h,color) {
     }
 }
 
-// ===== Песок (простая физика) =====
 function updateSand() {
     for (let y = SAND_H - 2; y >= 0; y--) {
         for (let x = 0; x < SAND_W; x++) {
@@ -313,7 +367,6 @@ function updateSand() {
     }
 }
 
-// ===== Поиск мостов (лево->право одной цветом) =====
 function findBridges() {
     const toDelete = new Set();
     const leftColors = new Set();
@@ -373,7 +426,6 @@ function clearCells(coordSet) {
     return count;
 }
 
-// ===== Класс фигуры =====
 class Piece {
     constructor(color = null) {
         this.shape = random(TETROMINOES).map(row => row.slice());
@@ -434,16 +486,14 @@ class Piece {
         if (this._canPlaceShape(rotated, this.x, this.y)) {
             this.shape = rotated;
             playVibration();
-            // === АУДИО: Воспроизведение звука поворота ===
-            // playSound(soundEffects.rotate);
+            playSound(soundEffects.rotate);
             return true;
         }
         for (const kick of [-1,1,-2,2]) {
             if (this._canPlaceShape(rotated, this.x + kick, this.y)) {
                 this.x += kick; this.shape = rotated;
                 playVibration();
-                // === АУДИО: Воспроизведение звука поворота ===
-                // playSound(soundEffects.rotate);
+                playSound(soundEffects.rotate);
                 return true;
             }
         }
@@ -454,8 +504,7 @@ class Piece {
         for (const [bx,by] of this.getBlocks()) {
             fillRegion(bx * PPB, by * PPB, PPB, PPB, this.color);
         }
-        // === АУДИО: Воспроизведение звука падения ===
-        // playSound(soundEffects.fall);
+        playSound(soundEffects.fall);
     }
 }
 
@@ -468,8 +517,6 @@ function getCurrentFallInterval() {
 function spawnPiece() {
     activePiece = nextPiece;
     nextPiece = new Piece();
-    // ИСПРАВЛЕНО: Убрал вызов showGameOver() отсюда.
-    // Если игра окончена, это обрабатывает главный цикл loop()
     if (activePiece && !activePiece._canPlaceShape(activePiece.shape, activePiece.x, activePiece.y)) {
         gameOver = true;
     }
@@ -506,8 +553,7 @@ function update(dt) {
         level = difficultyLevel + Math.floor(removedParticlesTotal / 500);
         updateUI();
         playVibration();
-        // === АУДИО: Воспроизведение звука очистки ===
-        // playSound(soundEffects.clear);
+        playSound(soundEffects.clear);
     }
 }
 
@@ -585,33 +631,18 @@ function drawNextPiece() {
 
 function draw() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
-
-
-    function draw() {
-        // Сначала фон
-        ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
-
-        // Потом — всё, что уже есть в твоей функции отрисовки
-        drawGrid();
-        drawPieces();
-    }
-
     drawSand();
     drawActivePiece();
     ctx.strokeStyle = 'rgba(80,80,88,0.6)';
     ctx.lineWidth = 2;
     ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
-
     drawNextPiece();
 }
 
 function drawCountdown() {
-    // Отрисовка игрового поля перед отрисовкой текста
     draw();
-
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
     ctx.fillStyle = '#fff';
     ctx.font = `${canvas.height / 5}px 'Courier New', monospace`;
     ctx.textAlign = 'center';
@@ -622,7 +653,6 @@ function drawCountdown() {
 // ===== Управление и события =====
 function setupInput() {
     gameArea = document.getElementById('gameArea');
-    // Кнопки
     document.getElementById('rotateBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (activePiece) activePiece.tryRotate(); draw(); });
     document.getElementById('leftBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (activePiece) activePiece.tryMove(-1,0); draw(); });
     document.getElementById('rightBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (activePiece) activePiece.tryMove(1,0); draw(); });
@@ -630,10 +660,8 @@ function setupInput() {
     document.getElementById('downBtn').addEventListener('pointerup', e => { e.preventDefault(); fastDrop = false; });
     document.getElementById('downBtn').addEventListener('pointercancel', e => { fastDrop = false; });
 
-    // Тач-управление
     gameArea.addEventListener('touchstart', e => {
         const now = performance.now();
-        // Обработка тапа для поворота
         if (e.touches.length === 1) {
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
@@ -650,25 +678,20 @@ function setupInput() {
 
         if (Math.abs(deltaY) > swipeThreshold) {
             fastDrop = false;
-            // Вертикальный свайп - мгновенный сброс
             while (activePiece.tryMove(0,1)) {}
             activePiece.lockToSand();
             activePiece = null;
         } else if (Math.abs(deltaX) < 10) {
-            // Тап для поворота
             if (activePiece) { activePiece.tryRotate(); draw(); }
         }
-
     }, { passive: false });
 
     gameArea.addEventListener('touchmove', e => {
          e.preventDefault();
          if (paused || gameOver || !activePiece || e.touches.length !== 1) return;
-
          const currentX = e.touches[0].clientX;
          const deltaX = currentX - startX;
          const swipeThreshold = 30;
-
          if (Math.abs(deltaX) > swipeThreshold) {
              if (deltaX > 0) {
                  if (activePiece.tryMove(1, 0)) draw();
@@ -680,7 +703,6 @@ function setupInput() {
          }
     }, { passive: false });
 
-    // Клавиатура
     window.addEventListener('keydown', e => {
         if (gameOver || paused) return;
         if (!activePiece) return;
@@ -709,7 +731,6 @@ function resizeCanvasToGrid() {
     canvas.style.width = '100%';
     canvas.style.height = '100%';
     ctx.imageSmoothingEnabled = false;
-
     nextCanvas.width = nextCanvas.clientWidth || 80;
     nextCanvas.height = nextCanvas.clientHeight || 80;
     nextCtx.imageSmoothingEnabled = false;
@@ -730,10 +751,7 @@ function showGameScreen() {
 }
 
 function showSettingsScreen() {
-    // Установить начальные состояния переключателей
-    musicToggle.classList.toggle('on', musicOn);
-    soundToggle.classList.toggle('on', soundOn);
-    vibrationToggle.classList.toggle('on', vibrationOn);
+    applySettingsToUI();
     showScreen(settingsScreen);
 }
 
@@ -750,18 +768,13 @@ function togglePause() {
     }
 }
 
-// === ИСПРАВЛЕНИЕ: Убрана лишняя проверка, которая могла прерывать обратный отсчет. ===
 function countdownLoop(now) {
     if (countdown <= 0) {
-        // Установка lastTime для плавного старта после паузы
         lastTime = now / 800;
-        // Правильный перезапуск основного игрового цикла
         requestAnimationFrame(loop);
         return;
     }
-
     drawCountdown();
-
     const dt = (now - lastCountdownTime) / 1000;
     if (dt >= 1) {
         countdown--;
@@ -769,14 +782,13 @@ function countdownLoop(now) {
     }
     requestAnimationFrame(countdownLoop);
 }
-// =========================================================================================
 
 function showGameOver() {
-    showAd(); // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+    stopMusic();
+    saveSettings();
+    showAd();
     document.getElementById('gameOver').style.display = 'flex';
     document.getElementById('finalScore').textContent = score;
-    // ИСПРАВЛЕНО: Вызов saveHighscore() перенесён сюда,
-    // чтобы он вызывался только один раз при завершении игры
     saveHighscore(score);
 }
 
@@ -784,7 +796,6 @@ function hideGameOver() {
     document.getElementById('gameOver').style.display = 'none';
 }
 
-// ===== Старт/Рестарт игры =====
 function startNewGame() {
     gameOver = false;
     paused = false;
@@ -793,44 +804,34 @@ function startNewGame() {
     removedParticlesTotal = 0;
     fallTimer = 0;
     fastDrop = false;
-    lastTime = 0; // Сбрасываем lastTime для нового цикла
+    lastTime = 0;
     initGrid();
     activePiece = null;
     nextPiece = new Piece();
     updateUI();
     hideGameOver();
     showGameScreen();
-    // === АУДИО: Запуск музыки с проверкой настроек ===
-    if (musicOn) playMusic(music);
+    playSound(soundEffects.clear);
     requestAnimationFrame(loop);
 }
 
-function backToMain() {
-    gameOver = true; // Останавливаем цикл игры
+async function backToMain() {
+    gameOver = true;
     paused = false;
-    // === АУДИО: Остановка музыки при выходе в меню ===
-    // stopMusic();
+    saveSettings();
+    playMusic(music);
     showScreen(mainMenuScreen);
-    displayHighscores();
+    await displayHighscores();
 }
 
-// ===== Главный цикл =====
 function loop(now) {
-    if (paused) {
-        // Если игра на паузе, ничего не делаем и не вызываем loop() снова
-        return;
-    }
-
+    if (paused) return;
     const t = now / 1000;
     if (!lastTime) lastTime = t;
     const dt = clamp(t - lastTime, 0, 0.05);
     lastTime = t;
-
     update(dt);
     draw();
-
-    // ИСПРАВЛЕНО: Переместил проверку gameOver в конец цикла.
-    // Теперь, когда gameOver становится true, мы один раз вызываем showGameOver() и останавливаем цикл.
     if (!gameOver) {
         requestAnimationFrame(loop);
     } else {
@@ -838,75 +839,87 @@ function loop(now) {
     }
 }
 
-// ===== Загрузка / init =====
-function initEverything() {
-    // DOM элементы
+async function initEverything() {
     canvas = document.getElementById('gameCanvas');
     ctx = canvas.getContext('2d');
     nextCanvas = document.getElementById('nextCanvas');
     nextCtx = nextCanvas.getContext('2d');
     gameArea = document.getElementById('gameArea');
-
     resizeCanvasToGrid();
-    initAudio(); // Вызов функции initAudio
+
+    await loadSettings();
+    applySettingsToUI();
+
     setupInput();
 
-    // Обработчики событий
-    startGameBtn.addEventListener('click', startNewGame);
+    startGameBtn.addEventListener('click', () => {
+        if (!audioUnlocked) {
+            audioContext.resume().then(() => {
+                audioUnlocked = true;
+                playMusic(music);
+                startNewGame();
+            });
+        } else {
+            startNewGame();
+        }
+    });
+
     pauseBtn.addEventListener('click', togglePause);
     resumeBtn.addEventListener('click', togglePause);
     newGameBtn.addEventListener('click', () => {
-        startNewGame();
-        showScreen(gameContainer);
+    startNewGame();
+    showGameScreen();
     });
     exitToMainBtn.addEventListener('click', backToMain);
     restartBtn.addEventListener('click', startNewGame);
     exitFromGameOverBtn.addEventListener('click', backToMain);
-
-    // Обработчики для кнопок настроек
     settingsBtn.addEventListener('click', showSettingsScreen);
     backToMainFromSettingsBtn.addEventListener('click', () => {
+        saveSettings();
         showScreen(mainMenuScreen);
     });
+
     saveSettingsBtn.addEventListener('click', () => {
         musicOn = musicToggle.classList.contains('on');
         soundOn = soundToggle.classList.contains('on');
         vibrationOn = vibrationToggle.classList.contains('on');
 
-        // Применение изменений
-        if (musicOn) {
-            // playMusic(music);
-            if (musicGainNode) musicGainNode.gain.value = 0.5;
-        } else {
-            // stopMusic();
-            if (musicGainNode) musicGainNode.gain.value = 0;
+        if (clearHighscoresToggle.classList.contains('on')) {
+            clearHighscores();
+            clearHighscoresToggle.classList.remove('on');
         }
+
+        if (musicOn) {
+            playMusic(music);
+        } else {
+            stopMusic();
+        }
+
         if (sfxGainNode) {
             sfxGainNode.gain.value = soundOn ? 0.5 * 1.3 : 0;
         }
-
+        saveSettings();
         showScreen(mainMenuScreen);
     });
 
-    // Обработчики для переключателей настроек
-    musicToggle.addEventListener('click', () => musicToggle.classList.toggle('on'));
+    musicToggle.addEventListener('click', () => {
+        musicToggle.classList.toggle('on');
+    });
     soundToggle.addEventListener('click', () => soundToggle.classList.toggle('on'));
     vibrationToggle.addEventListener('click', () => vibrationToggle.classList.toggle('on'));
+    clearHighscoresToggle.addEventListener('click', () => clearHighscoresToggle.classList.toggle('on'));
 
-    // Обработчики для кнопок сложности
     const difficultyButtons = document.querySelectorAll('.difficulty-btn');
     difficultyButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             difficultyButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             difficultyLevel = parseInt(btn.dataset.level, 10);
+            saveSettings();
         });
     });
 
-    // Изначальный старт
-    window.addEventListener('load', () => {
-        displayHighscores();
-    });
+    await displayHighscores();
 }
 
 function showAd(callback) {
@@ -914,7 +927,6 @@ function showAd(callback) {
     adTimer = 5;
     adTimerEl.textContent = adTimer;
     closeAdBtn.classList.add('hidden');
-
     adIntervalId = setInterval(() => {
         adTimer--;
         adTimerEl.textContent = adTimer;
@@ -923,19 +935,14 @@ function showAd(callback) {
             closeAdBtn.classList.remove('hidden');
         }
     }, 1000);
-
-    // !!! ВНИМАНИЕ: AdMob будет работать только в мобильном приложении (Cordova/PhoneGap)
     if (typeof admob !== 'undefined' && admob.interstitial) {
-        // Если AdMob доступен, показываем настоящую рекламу
         admob.interstitial.show();
-        // При закрытии рекламы вызываем колбэк и готовим следующую
         document.addEventListener('onAdDismiss', () => {
             adScreen.classList.add('hidden');
             if (callback) callback();
             admob.interstitial.prepare();
         }, { once: true });
     } else {
-        // Фолбэк: если AdMob не доступен, просто ждем таймер
         closeAdBtn.onclick = () => {
             clearInterval(adIntervalId);
             adScreen.classList.add('hidden');
@@ -944,5 +951,18 @@ function showAd(callback) {
     }
 }
 
-
-document.addEventListener('DOMContentLoaded', initEverything);
+// Универсальная инициализация:
+if (window.cordova) {
+    document.addEventListener('deviceready', async () => {
+        console.log("Устройство готово. Запускаем инициализацию.");
+        initAdMob();
+        await initAudio();
+        initEverything();
+    }, false);
+} else {
+    document.addEventListener('DOMContentLoaded', async () => {
+        console.log("Страница загружена. Запускаем инициализацию для браузера.");
+        await initAudio();
+        initEverything();
+    });
+}

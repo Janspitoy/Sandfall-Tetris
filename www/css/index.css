@@ -557,6 +557,39 @@ canvas {
     display: flex;
 }
 
+/* Стили для контейнера переключателя */
+.toggle-btn {
+    width: 50px; /* Ширина всего переключателя */
+    height: 25px; /* Высота всего переключателя */
+    background-color: #ccc; /* Цвет фона выключенного состояния */
+    border-radius: 25px; /* Скругление углов для формы "таблетки" */
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.3s; /* Плавный переход цвета фона */
+}
+
+/* Стили для круга-переключателя */
+.toggle-circle {
+    width: 21px; /* Ширина круга */
+    height: 21px; /* Высота круга */
+    background-color: #fff; /* Цвет круга */
+    border-radius: 50%; /* Круглая форма */
+    position: absolute;
+    top: 2px; /* Отступ сверху */
+    left: 2px; /* Отступ слева (выключенное состояние) */
+    transition: left 0.3s; /* Плавный переход положения */
+}
+
+/* Стили для включенного состояния */
+.toggle-btn.on {
+    background-color: #4CAF50; /* Зеленый цвет фона для включенного состояния */
+}
+
+/* Положение круга во включенном состоянии */
+.toggle-btn.on .toggle-circle {
+    left: 27px; /* Положение справа (ширина - ширина круга - двойной отступ) */
+}
+
 @media (max-width: 350px) {
     .ui-panel { padding: 6px; font-size: 10px; }
     .controls { gap: 4px; padding: 6px; }
