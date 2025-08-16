@@ -1,0 +1,29 @@
+{
+  "name": "io.cordova.sandfilltetris",
+  "displayName": "Sandfill Tetris",
+  "version": "1.0.0",
+  "description": "Sandfill Tetris is a creative twist on classic Tetris where pieces behave like falling sand instead of rigid blocks.\nInstead of neatly stacking shapes, the fragments crumble and flow into gaps, creating unpredictable, organic patterns.\nThe goal remains to fill lines and score points, but the physics-driven mechanics add a fresh, chaotic challenge.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ecosystem:cordova"
+  ],
+  "author": "LitePix Team",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "cordova-android": "^14.0.1",
+    "cordova-plugin-nativestorage": "^2.3.2",
+    "cordova-plugin-splashscreen": "^6.0.1"
+  },
+  "cordova": {
+    "platforms": [
+      "android"
+    ],
+    "plugins": {
+      "cordova-plugin-nativestorage": {},
+      "cordova-plugin-splashscreen": {}
+    }
+  }
+}

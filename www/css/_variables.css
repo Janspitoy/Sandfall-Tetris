@@ -1,0 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+    --aspect-ratio: 8 / 15;
+    --color-primary: #9d4e28;
+    --color-secondary: #f4c244;
+    --color-background-dark: #3a2e2d;
+    --color-background-menu: #5c453c;
+    --color-text-light: #e0d0b0;
+    --color-text-medium: #a89477;
+    --color-success: #3c8d3c;
+    --color-danger: #c0392b;
+    --border-radius-large: 5px;
+    --border-radius-small: 2px;
+    --shadow-light: 2px 2px 0 rgba(0, 0, 0, 0.4);
+    --shadow-medium: 3px 3px 0 rgba(0, 0, 0, 0.6);
+    --transition-fast: 0.1s ease-out;
+}

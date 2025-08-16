@@ -1,0 +1,193 @@
+/* ОБНОВЛЕНО: Используем game-container как главный контейнер */
+.game-frame {
+    position: relative;
+    height: 100%;
+    width: 100%;
+    max-height: 95vh;
+    max-width: calc(95vh * var(--aspect-ratio));
+    background: #1a1a1a;
+    border-radius: var(--border-radius-large);
+    box-shadow: var(--shadow-medium);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Основная игра */
+.game-container {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: transparent;
+}
+
+.game-container.active {
+    display: flex;
+}
+
+.pause-btn {
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    font-size: clamp(18px, 5vw, 24px);
+    cursor: pointer;
+    z-index: 101;
+    background: none;
+    border: none;
+    color: var(--color-text-light);
+    text-shadow: var(--shadow-light);
+    transition: transform var(--transition-fast);
+}
+
+.pause-btn:active {
+    transform: scale(0.9);
+}
+
+.ui-panel {
+    background-color: var(--color-background-menu);
+    padding: clamp(6px, 2vw, 12px);
+    border-bottom: 2px solid var(--color-background-dark);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: clamp(10px, 2.5vw, 14px);
+    box-shadow: var(--shadow-light);
+}
+
+.score-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.score-info div {
+    font-weight: bold;
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.4);
+}
+
+.next-piece {
+    width: clamp(50px, 15vw, 80px);
+    height: clamp(50px, 15vw, 80px);
+    border: 2px solid var(--color-primary);
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: var(--border-radius-small);
+    box-shadow: inset 1px 1px 0 rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 50px;
+}
+
+.game-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 5px;
+    height: 100%;
+    width: 100%;
+    background: url('../img/img_1.png') no-repeat center center/cover;
+}
+
+.game-area {
+    width: 280px;
+    height: 525px;
+    background: url('../img/tetris_game_bg1.png') no-repeat center center;
+    background-size: cover;
+    position: relative;
+    border: 2px solid var(--color-primary);
+    border-radius: var(--border-radius-large);
+    overflow: hidden;
+    box-shadow: var(--shadow-medium);
+}
+
+#gameCanvas {
+    background: transparent;
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+canvas {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+    image-rendering: pixelated;
+    border-radius: var(--border-radius-large);
+    background: url('../img/tetris_game_bg1.png') no-repeat center center/cover;
+}
+
+/* Стили для элементов управления */
+.controls {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: auto auto;
+    gap: clamp(6px, 1.5vw, 10px);
+    padding: 45px 10px 50px 10px;
+    background-color: var(--color-background-menu);
+    border-radius: 0;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.4);
+}
+
+.control-btn {
+    background-color: var(--color-background-menu);
+    border: 2px solid var(--color-primary);
+    border-radius: 4px;
+    color: var(--color-text-light);
+    font-size: clamp(14px, 4vw, 22px);
+    font-weight: bold;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(8px, 2vw, 12px);
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+    box-shadow: var(--shadow-light);
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.4);
+}
+
+.control-btn:active,
+.control-btn:focus {
+    background-color: var(--color-background-dark);
+    border-color: var(--color-secondary);
+    transform: translateY(1px);
+    box-shadow: 1px 1px 0 rgba(0,0,0,0.4);
+}
+
+.control-btn:hover {
+    background-color: #6d5249;
+}
+
+.rotate-btn {
+    grid-column: 2;
+    grid-row: 1;
+    background-color: var(--color-danger);
+    border-color: var(--color-danger);
+}
+
+.rotate-btn:active { background-color: #e76f6f; }
+
+.left-btn {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.down-btn {
+    grid-column: 2;
+    grid-row: 2;
+    background-color: var(--color-secondary);
+    border-color: var(--color-secondary);
+}
+
+.down-btn:active { background-color: #f5d475; }
+
+.right-btn {
+    grid-column: 3;
+    grid-row: 2;
+}
