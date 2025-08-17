@@ -1,7 +1,64 @@
+const TEST_INTERSTITIAL_ID = 'ca-app-pub-3940256099942544/1033173712';
+
+let interstitial;
+
+// ========== Параметры показа рекламы ==========
+let lastAdTimestamp = 0; // время последнего успешного показа (ms since epoch)
+const AD_COOLDOWN_MINUTES = 3; // 3 минуты
+const AD_COOLDOWN_MS = AD_COOLDOWN_MINUTES * 60 * 1000;
+let adInProgress = false;
+
+// ====== (твой оригинальный) deviceready + observer ======
+document.addEventListener('deviceready', async () => {
+  if (!window.admob) {
+    return;
+  }
+
+  interstitial = new admob.InterstitialAd({
+    adUnitId: TEST_INTERSTITIAL_ID,
+  });
+
+  try {
+    await interstitial.load();
+  } catch (err) {
+    console.warn('Interstitial initial load failed:', err);
+  }
+
+  // Следим за открытием окна Game Over
+  const gameOverEl = document.getElementById('gameOver');
+
+  const observer = new MutationObserver(async (mutations) => {
+    for (let mutation of mutations) {
+      if (
+        mutation.attributeName === 'style' ||
+        mutation.attributeName === 'class'
+      ) {
+        // Проверяем, что окно стало видимым
+        const visible =
+          gameOverEl.style.display !== 'none' &&
+          !gameOverEl.classList.contains('hidden');
+
+        if (visible) {
+          // Запускаем показ рекламы через небольшую задержку
+          // чтобы пользователь успел увидеть Game Over экран
+          setTimeout(() => {
+            handleGameOverAdFlow(gameOverEl);
+          }, 1);
+        }
+      }
+    }
+  });
+
+  observer.observe(gameOverEl, {
+    attributes: true,
+    attributeFilter: ['style', 'class'],
+  });
+});
+
 // ====== Константы и данные ======
 const BLOCK_W = 8, BLOCK_H = 16;
-const PPB = 8;
-const PIXEL = 4;
+const PPB = 5;
+const PIXEL = 2;
 const SAND_W = BLOCK_W * PPB;
 const SAND_H = BLOCK_H * PPB;
 
@@ -47,15 +104,14 @@ let lastSwipeTime = 0;
 let swipeCooldown = 200;
 let startX = 0, startY = 0;
 let gameArea;
-let adTimer = 5;
-let adIntervalId = null;
 let countdown = 0;
 let lastCountdownTime = 0;
 let audioUnlocked = false;
 let clearHighscoresOn = false;
-let sfxGainNode = null; // Глобальный узел громкости SFX
+let sfxGainNode = null;
+let flickerAnimations = []; // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
 
-// ИЗМЕНЕНО: флаг активной игры
+// Game state flag
 let inGame = false;
 
 // DOM элементы
@@ -83,21 +139,6 @@ const highscoresList = document.getElementById('highscoresList');
 const easyBtn = document.getElementById('easyBtn');
 const mediumBtn = document.getElementById('mediumBtn');
 const hardBtn = document.getElementById('hardBtn');
-const adScreen = document.getElementById('adScreen');
-const closeAdBtn = document.getElementById('closeAdBtn');
-const adTimerEl = document.getElementById('ad-timer');
-
-// ====== AdMob ======
-function initAdMob() {
-    if (window.admob && admob.interstitial) {
-        admob.interstitial.config({
-            id: 'ca-app-pub-4411114348896099~1525807767',
-            isTesting: false,
-            autoShow: false
-        });
-        admob.interstitial.prepare();
-    }
-}
 
 // ====== Аудио ======
 function createAudioContext() {
@@ -115,18 +156,22 @@ async function loadAudio(url) {
 async function initAudio() {
     createAudioContext();
 
-    // Узел громкости для SFX
     if (!sfxGainNode) {
         sfxGainNode = audioContext.createGain();
         sfxGainNode.connect(audioContext.destination);
     }
     sfxGainNode.gain.value = soundOn ? 0.65 : 0;
 
-    // Загрузка аудио
-    music = await loadAudio('audio/music.mp3'); // путь для Cordova/браузера
-    soundEffects.fall = await loadAudio('audio/fall.wav');
-    soundEffects.clear = await loadAudio('audio/clear.wav');
-    soundEffects.rotate = await loadAudio('audio/rotate.wav');
+    try {
+        music = await loadAudio('audio/music.mp3');
+        soundEffects.fall = await loadAudio('audio/fall.wav');
+        soundEffects.clear = await loadAudio('audio/clear.wav');
+        soundEffects.rotate = await loadAudio('audio/rotate.wav');
+        soundEffects.gameover = await loadAudio('audio/gameover.wav');
+
+    } catch (error) {
+        console.log('Audio files not found, continuing without audio');
+    }
 }
 
 function playMusic(buffer) {
@@ -152,7 +197,6 @@ function playSound(buffer) {
     if (!soundOn || !buffer) return;
     const source = audioContext.createBufferSource();
     source.buffer = buffer;
-    // Все SFX через общий GainNode
     if (sfxGainNode) {
         source.connect(sfxGainNode);
     } else {
@@ -167,14 +211,20 @@ function onDeviceReady() {
 
     document.addEventListener('pause', () => {
         console.log("Приложение на паузе");
-        stopMusic(); // ИЗМЕНЕНО: стоп при сворачивании/уходе
+        stopMusic();
     }, false);
 
     document.addEventListener('resume', () => {
         console.log("Приложение возобновлено");
-        // ИЗМЕНЕНО: музыка только если реально идёт игра
         if (musicOn && inGame && !paused && !gameOver) {
             playMusic(music);
+        }
+    }, false);
+
+    document.addEventListener('backbutton', (e) => {
+        e.preventDefault();
+        if (inGame && !gameOver) {
+            togglePause();
         }
     }, false);
 
@@ -223,18 +273,39 @@ function saveHighscore(score) {
 async function displayHighscores() {
     const highscores = await getHighscores();
     highscoresList.innerHTML = '';
+
     if (highscores.length === 0) {
         highscoresList.innerHTML = '<p style="text-align:center; padding: 10px;">No records yet.</p>';
-    } else {
-        const ol = document.createElement('ol');
-        highscores.forEach(h => {
-            const li = document.createElement('li');
-            li.textContent = `${h.score} points (${h.date})`;
-            ol.appendChild(li);
-        });
-        highscoresList.innerHTML = '';
-        highscoresList.appendChild(ol);
+        return;
     }
+
+    const ol = document.createElement('ol');
+    ol.style.margin = '0';
+    ol.style.padding = '0';
+    ol.style.listStyle = 'none';
+
+    highscores.forEach(h => {
+        const li = document.createElement('li');
+        li.style.display = 'flex';
+        li.style.justifyContent = 'space-between';
+        li.style.alignItems = 'center';
+        li.style.padding = '6px 8px';
+        li.style.borderBottom = '2px solid rgba(0,0,0,0.1)';
+
+        const leftSpan = document.createElement('span');
+        leftSpan.textContent = `${h.score} points`;
+
+        const rightSpan = document.createElement('span');
+        rightSpan.textContent = h.date;
+        rightSpan.style.opacity = '0.95';
+        rightSpan.style.fontSize = '1em';
+
+        li.appendChild(leftSpan);
+        li.appendChild(rightSpan);
+        ol.appendChild(li);
+    });
+
+    highscoresList.appendChild(ol);
 }
 
 async function clearHighscores() {
@@ -277,10 +348,10 @@ async function loadSettings() {
             NativeStorage.getItem('sandfallSettings',
                 (settings) => {
                     if (settings) {
-                        musicOn = settings.musicOn;
-                        soundOn = settings.soundOn;
-                        vibrationOn = settings.vibrationOn;
-                        difficultyLevel = settings.difficultyLevel;
+                        musicOn = settings.musicOn !== undefined ? settings.musicOn : true;
+                        soundOn = settings.soundOn !== undefined ? settings.soundOn : true;
+                        vibrationOn = settings.vibrationOn !== undefined ? settings.vibrationOn : true;
+                        difficultyLevel = settings.difficultyLevel || 1;
                     }
                     resolve();
                 },
@@ -289,10 +360,10 @@ async function loadSettings() {
         } else {
             const settings = JSON.parse(localStorage.getItem('sandfallSettings'));
             if (settings) {
-                musicOn = settings.musicOn;
-                soundOn = settings.soundOn;
-                vibrationOn = settings.vibrationOn;
-                difficultyLevel = settings.difficultyLevel;
+                musicOn = settings.musicOn !== undefined ? settings.musicOn : true;
+                soundOn = settings.soundOn !== undefined ? settings.soundOn : true;
+                vibrationOn = settings.vibrationOn !== undefined ? settings.vibrationOn : true;
+                difficultyLevel = settings.difficultyLevel || 1;
             }
             resolve();
         }
@@ -497,6 +568,11 @@ class Piece {
         }
         this.x = nx; this.y = ny;
         playVibration();
+
+        if (dx !== 0) {
+            playSound(soundEffects.rotate);
+        }
+
         return true;
     }
 
@@ -563,6 +639,17 @@ function update(dt) {
     const bridgeCells = findBridges();
     if (bridgeCells.size > 0) {
         const removed = clearCells(bridgeCells);
+        // Создаем анимацию для каждой удаленной частицы
+        bridgeCells.forEach(coordStr => {
+            const [x, y] = coordStr.split(',').map(Number);
+            flickerAnimations.push({
+                x: x,
+                y: y,
+                lifetime: 0.25, // Длительность анимации в секундах
+                maxLifetime: 0.25
+            });
+        });
+
         let mult = 1.0;
         if (removed >= 200) mult = 1.2;
         if (removed >= 500) mult = 1.5;
@@ -576,6 +663,46 @@ function update(dt) {
         playSound(soundEffects.clear);
     }
 }
+
+// ===== Рисование =====
+// ... (существующие функции рисования) ...
+
+// --> НАЧАЛО ДОБАВЛЕННОГО КОДА
+
+function drawFlicker() {
+    if (flickerAnimations.length === 0) return;
+
+    flickerAnimations.forEach(p => {
+        const progress = p.lifetime / p.maxLifetime; // От 1 до 0
+
+        // Эффект мерцания: быстро чередуем два ярких цвета
+        const flickerColor = (Math.floor(Date.now() / 50) % 2 === 0)
+            ? 'rgba(255, 255, 255, 0.9)'
+            : 'rgba(255, 255, 150, 0.9)';
+
+        ctx.fillStyle = flickerColor;
+
+        // Анимация затухания
+        ctx.globalAlpha = progress;
+
+        ctx.fillRect(p.x * PIXEL, p.y * PIXEL, PIXEL, PIXEL);
+    });
+
+    // Сбрасываем прозрачность для остальной отрисовки
+    ctx.globalAlpha = 1.0;
+}
+
+function updateFlicker(dt) {
+    // Обновляем анимации в обратном порядке, чтобы безопасно удалять из массива
+    for (let i = flickerAnimations.length - 1; i >= 0; i--) {
+        const p = flickerAnimations[i];
+        p.lifetime -= dt;
+        if (p.lifetime <= 0) {
+            flickerAnimations.splice(i, 1);
+        }
+    }
+}
+// --> КОНЕЦ ДОБАВЛЕННОГО КОДА
 
 function updateUI() {
     const s = document.getElementById('score');
@@ -653,6 +780,7 @@ function draw() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
     drawSand();
     drawActivePiece();
+    drawFlicker(); // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
     ctx.strokeStyle = 'rgba(80,80,88,0.6)';
     ctx.lineWidth = 2;
     ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
@@ -673,12 +801,38 @@ function drawCountdown() {
 // ===== Управление и события =====
 function setupInput() {
     gameArea = document.getElementById('gameArea');
-    document.getElementById('rotateBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (activePiece) activePiece.tryRotate(); draw(); });
-    document.getElementById('leftBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (activePiece) activePiece.tryMove(-1,0); draw(); });
-    document.getElementById('rightBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (activePiece) activePiece.tryMove(1,0); draw(); });
-    document.getElementById('downBtn').addEventListener('pointerdown', e => { e.preventDefault(); fastDrop = true; });
-    document.getElementById('downBtn').addEventListener('pointerup', e => { e.preventDefault(); fastDrop = false; });
-    document.getElementById('downBtn').addEventListener('pointercancel', e => { fastDrop = false; });
+
+    document.getElementById('rotateBtn').addEventListener('pointerdown', e => {
+        e.preventDefault();
+        if (activePiece) activePiece.tryRotate();
+        draw();
+    });
+
+    document.getElementById('leftBtn').addEventListener('pointerdown', e => {
+        e.preventDefault();
+        if (activePiece) activePiece.tryMove(-1,0);
+        draw();
+    });
+
+    document.getElementById('rightBtn').addEventListener('pointerdown', e => {
+        e.preventDefault();
+        if (activePiece) activePiece.tryMove(1,0);
+        draw();
+    });
+
+    document.getElementById('downBtn').addEventListener('pointerdown', e => {
+        e.preventDefault();
+        fastDrop = true;
+    });
+
+    document.getElementById('downBtn').addEventListener('pointerup', e => {
+        e.preventDefault();
+        fastDrop = false;
+    });
+
+    document.getElementById('downBtn').addEventListener('pointercancel', e => {
+        fastDrop = false;
+    });
 
     gameArea.addEventListener('touchstart', e => {
         if (e.touches.length === 1) {
@@ -702,7 +856,10 @@ function setupInput() {
                 activePiece = null;
             }
         } else if (Math.abs(deltaX) < 10) {
-            if (activePiece) { activePiece.tryRotate(); draw(); }
+            if (activePiece) {
+                activePiece.tryRotate();
+                draw();
+            }
         }
     }, { passive: false });
 
@@ -726,17 +883,34 @@ function setupInput() {
     window.addEventListener('keydown', e => {
         if (gameOver || paused) return;
         if (!activePiece) return;
-        if (e.key === 'ArrowLeft') { activePiece.tryMove(-1,0); draw(); e.preventDefault(); }
-        else if (e.key === 'ArrowRight') { activePiece.tryMove(1,0); draw(); e.preventDefault(); }
-        else if (e.key === 'ArrowDown') { fastDrop = true; e.preventDefault(); }
-        else if (e.key === 'ArrowUp' || e.key === 'x' || e.key === 'X') { activePiece.tryRotate(); draw(); e.preventDefault(); }
+        if (e.key === 'ArrowLeft') {
+            activePiece.tryMove(-1,0);
+            draw();
+            e.preventDefault();
+        }
+        else if (e.key === 'ArrowRight') {
+            activePiece.tryMove(1,0);
+            draw();
+            e.preventDefault();
+        }
+        else if (e.key === 'ArrowDown') {
+            fastDrop = true;
+            e.preventDefault();
+        }
+        else if (e.key === 'ArrowUp' || e.key === 'x' || e.key === 'X') {
+            activePiece.tryRotate();
+            draw();
+            e.preventDefault();
+        }
         else if (e.key === ' ') {
             e.preventDefault();
             if (!activePiece) return;
             while (activePiece.tryMove(0,1)) {}
             activePiece.lockToSand();
             activePiece = null;
-        } else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { togglePause(); }
+        } else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+            togglePause();
+        }
     });
 
     window.addEventListener('keyup', e => {
@@ -779,11 +953,11 @@ function togglePause() {
     if (gameOver) return;
     paused = !paused;
     if (paused) {
-        stopMusic(); // ИЗМЕНЕНО: стоп на паузе
+        stopMusic();
         showScreen(pauseScreen);
     } else {
         showGameScreen();
-        if (musicOn) playMusic(music); // ИЗМЕНЕНО: возобновить при выходе из паузы
+        if (musicOn) playMusic(music);
         countdown = 3;
         lastCountdownTime = performance.now();
         requestAnimationFrame(countdownLoop);
@@ -806,23 +980,25 @@ function countdownLoop(now) {
 }
 
 function showGameOver() {
-    stopMusic(); // ИЗМЕНЕНО: стоп при геймовере
-    inGame = false; // ИЗМЕНЕНО
+    stopMusic();
+    inGame = false;
+    playSound(soundEffects.gameover); // <-- ДОБАВЛЕННАЯ СТРОКА
     saveSettings();
-    showAd();
     document.getElementById('gameOver').style.display = 'flex';
     document.getElementById('finalScore').textContent = score;
+
     saveHighscore(score);
 }
 
 function hideGameOver() {
     document.getElementById('gameOver').style.display = 'none';
+
 }
 
 function startNewGame() {
     gameOver = false;
     paused = false;
-    inGame = true; // ИЗМЕНЕНО
+    inGame = true;
     score = 0;
     level = difficultyLevel;
     removedParticlesTotal = 0;
@@ -837,15 +1013,15 @@ function startNewGame() {
     showGameScreen();
     playSound(soundEffects.clear);
 
-    if (musicOn) playMusic(music); // ИЗМЕНЕНО: музыка стартует только здесь (в игре)
+    if (musicOn) playMusic(music);
     requestAnimationFrame(loop);
 }
 
 async function backToMain() {
     gameOver = true;
     paused = false;
-    inGame = false; // ИЗМЕНЕНО
-    stopMusic(); // ИЗМЕНЕНО: в меню без музыки
+    inGame = false;
+    stopMusic();
     saveSettings();
     showScreen(mainMenuScreen);
     await displayHighscores();
@@ -858,6 +1034,9 @@ function loop(now) {
     const dt = clamp(t - lastTime, 0, 0.05);
     lastTime = t;
     update(dt);
+    updateFlicker(dt); // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+
+    drawFlicker(); // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
     draw();
     if (!gameOver) {
         requestAnimationFrame(loop);
@@ -883,7 +1062,6 @@ async function initEverything() {
         if (!audioUnlocked) {
             audioContext.resume().then(() => {
                 audioUnlocked = true;
-                // ИЗМЕНЕНО: НЕ запускаем музыку здесь
                 startNewGame();
             });
         } else {
@@ -916,11 +1094,9 @@ async function initEverything() {
             clearHighscoresToggle.classList.remove('on');
         }
 
-        // ИЗМЕНЕНО: управление музыкой — без автозапуска в меню
         if (!musicOn) {
             stopMusic();
         } else {
-            // Включаем, только если реально идёт игра без паузы
             if (inGame && !paused && !gameOver) {
                 playMusic(music);
             }
@@ -953,49 +1129,144 @@ async function initEverything() {
     await displayHighscores();
 }
 
-function showAd(callback) {
-    adScreen.classList.remove('hidden');
-    adTimer = 5;
-    adTimerEl.textContent = adTimer;
-    closeAdBtn.classList.add('hidden');
-    adIntervalId = setInterval(() => {
-        adTimer--;
-        adTimerEl.textContent = adTimer;
-        if (adTimer <= 0) {
-            clearInterval(adIntervalId);
-            closeAdBtn.classList.remove('hidden');
-        }
-    }, 1000);
-    if (typeof admob !== 'undefined' && admob.interstitial) {
-        admob.interstitial.show();
-        document.addEventListener('onAdDismiss', () => {
-            adScreen.classList.add('hidden');
-            if (callback) callback();
-            admob.interstitial.prepare();
-        }, { once: true });
-    } else {
-        closeAdBtn.onclick = () => {
-            clearInterval(adIntervalId);
-            adScreen.classList.add('hidden');
-            if (callback) callback();
-        };
-    }
-}
-
 // Универсальная инициализация:
 if (window.cordova) {
     document.addEventListener('deviceready', async () => {
         console.log("Устройство готово. Запускаем инициализацию.");
         onDeviceReady();
-        initAdMob();
         await initAudio();
-        initEverything();
+        await initEverything();
     }, false);
 } else {
     document.addEventListener('DOMContentLoaded', async () => {
         console.log("Страница загружена. Запускаем инициализацию для браузера.");
         await initAudio();
-        initEverything();
+        await initEverything();
         window.addEventListener('beforeunload', stopMusic);
     });
+}
+
+/* ===========================
+   ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ РЕКЛАМЫ
+   =========================== */
+
+// Блокируем/разблокируем кнопки в окне Game Over
+function disableGameOverButtons() {
+    try {
+        restartBtn && (restartBtn.disabled = true);
+        exitFromGameOverBtn && (exitFromGameOverBtn.disabled = true);
+        // если есть другие кнопки в gameOver — блокируем их по селектору:
+        const gos = document.querySelectorAll('#gameOver .action-btn');
+        gos.forEach(b => b.disabled = true);
+    } catch (e) { /* ignore */ }
+}
+
+function enableGameOverButtons() {
+    try {
+        restartBtn && (restartBtn.disabled = false);
+        exitFromGameOverBtn && (exitFromGameOverBtn.disabled = false);
+        const gos = document.querySelectorAll('#gameOver .action-btn');
+        gos.forEach(b => b.disabled = false);
+    } catch (e) { /* ignore */ }
+}
+
+// Показываем небольшой индикатор загрузки рекламы (опционально)
+function showAdLoadingIndicator(container) {
+    let indicator = container.querySelector('.ad-loading-indicator');
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.className = 'ad-loading-indicator';
+        // минимальные стили инлайном
+        indicator.style.position = 'absolute';
+        indicator.style.top = '10px';
+        indicator.style.right = '10px';
+        indicator.style.background = 'rgba(0,0,0,0.7)';
+        indicator.style.color = '#fff';
+        indicator.style.padding = '8px 12px';
+        indicator.style.borderRadius = '4px';
+        indicator.style.fontSize = '12px';
+        indicator.style.zIndex = '10000';
+        indicator.textContent = ' ';
+        container.appendChild(indicator);
+    }
+    indicator.style.display = 'block';
+}
+
+function hideAdLoadingIndicator(container) {
+    const indicator = container.querySelector('.ad-loading-indicator');
+    if (indicator) indicator.style.display = 'none';
+}
+
+// Основной поток показа рекламы после появления Game Over
+async function handleGameOverAdFlow(gameOverEl) {
+    // Защита от многократного одновременного вызова
+    if (adInProgress) return;
+    adInProgress = true;
+
+    console.log('Начинаем показ рекламы после Game Over');
+
+    // Сразу блокируем кнопки на время показа рекламы
+    disableGameOverButtons();
+
+    // Показываем небольшой индикатор (опционально)
+    showAdLoadingIndicator(gameOverEl);
+
+    try {
+        const now = Date.now();
+
+        // Загружаем последний таймстамп из localStorage
+        const persisted = localStorage.getItem('lastInterstitialTs');
+        if (persisted) lastAdTimestamp = parseInt(persisted, 10) || 0;
+
+        // Проверяем можно ли показывать рекламу (по кулдауну)
+        if (!lastAdTimestamp || (now - lastAdTimestamp) >= AD_COOLDOWN_MS) {
+            if (!interstitial) {
+                console.warn('Interstitial не инициализирован.');
+            } else {
+                try {
+                    const loaded = await interstitial.isLoaded();
+                    if (!loaded) {
+                        console.log('Загружаем рекламу...');
+                        await interstitial.load();
+                    }
+
+                    console.log('Показываем рекламу...');
+                    await interstitial.show();
+
+                    // Если show() завершился без исключения — считаем показ успешным
+                    lastAdTimestamp = Date.now();
+                    localStorage.setItem('lastInterstitialTs', String(lastAdTimestamp));
+                    console.log('Реклама успешно показана');
+
+                } catch (err) {
+                    console.warn('Ошибка при показе рекламы:', err);
+                    // не критично — просто продолжаем
+                }
+            }
+        } else {
+            // кулдаун еще активен
+            const msLeft = AD_COOLDOWN_MS - (now - lastAdTimestamp);
+            const minutesLeft = Math.ceil(msLeft / (60 * 1000));
+            console.log(`Реклама на кулдауне. Осталось минут: ${minutesLeft}`);
+        }
+
+        // В любом случае ждем минимальное время блокировки кнопок (1.5-2 секунды)
+        // чтобы пользователь не мог сразу нажать кнопку
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+    } catch (error) {
+        console.error('Ошибка в потоке рекламы:', error);
+    } finally {
+        // Всегда разблокируем UI
+        hideAdLoadingIndicator(gameOverEl);
+        enableGameOverButtons();
+
+        // Убеждаемся что Game Over окно остается видимым
+        if (gameOverEl) {
+            gameOverEl.style.display = 'flex';
+        }
+
+        adInProgress = false;
+        console.log('Показ рекламы завершен, кнопки разблокированы');
+    }
 }

@@ -1,4 +1,7 @@
 /* Общие стили для экранов меню */
+
+@import url('_ui.css');
+
 .screen {
     position: absolute;
     top: 0;
@@ -26,15 +29,14 @@
 }
 
 .screen-content {
-    width: 350px;
-    height: 640px;
+    width: 90%;
+    height: 90%;
     background: var(--color-background-menu);
     padding: clamp(20px, 5vw, 40px);
     border-radius: var(--border-radius-large);
     box-shadow: var(--shadow-light);
     border: 2px solid var(--color-background-dark);
     max-width: 95%;
-    animation: fadeIn 0.3s ease-out;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -127,7 +129,7 @@
 .highscores-list {
     margin-top: 15px;
     width: 100%;
-    max-height: 220px;
+    height: 550px;
     overflow-y: auto;
     border: 2px solid var(--color-background-dark);
     border-radius: var(--border-radius-small);
@@ -202,14 +204,13 @@
 
 .toggle-switch {
     width: 40px;
-    height: 24px;
+    height: 20px;
     background-color: var(--color-text-medium);
     position: relative;
     border-radius: 24px;
     transition: background-color 0.3s;
     cursor: pointer;
     box-shadow: inset 1px 1px 0 rgba(0,0,0,0.4);
-    border: 2px solid var(--color-background-dark);
 }
 
 .toggle-switch::before {
@@ -229,25 +230,33 @@
 }
 
 .toggle-switch.on::before {
-    transform: translateX(16px);
+    transform: translateX(19px);
 }
 
+/* Game Over screen styles */
 .game-over {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.85);
     border: 2px solid var(--color-background-dark);
     box-shadow: var(--shadow-medium);
-    display: none;
+    display: none; /* Hidden by default */
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 12px;
+    z-index: 1000; /* Ensure it appears above other elements */
 }
 
+/* Show game over screen when 'show' class is added */
+.game-over.show {
+    display: flex; /* Use flex to match flex-direction */
+}
+
+/* Style the game over heading */
 .game-over h2 {
     color: var(--color-danger);
     font-size: clamp(16px, 5vw, 28px);
@@ -255,11 +264,13 @@
     margin-bottom: 0;
 }
 
+/* Style the game over paragraph */
 .game-over p {
     font-size: clamp(12px, 3vw, 16px);
     margin-bottom: 0;
 }
 
+/* Style the action buttons */
 .game-over .action-btn {
     background-color: var(--color-primary);
     width: 100%;
@@ -268,41 +279,30 @@
     border-color: var(--color-primary);
 }
 
-#adScreen {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    justify-content: center;
-    align-items: center;
-    z-index: 100;
-    text-align: center;
-    font-family: 'Courier New', monospace;
-}
-
-#adScreen.active {
-    display: flex;
+/* Ensure other elements support the transition */
+.controls,
+.game-wrapper,
+.ui-panel {
+    transition: opacity 0.3s ease;
 }
 
 /* Стили для контейнера переключателя */
 .toggle-btn {
-    width: 50px;
-    height: 25px;
-    background-color: #ccc;
+    width: 40px;
+    height: 20px;
+    background-color: var(--color-text-medium);
     border-radius: 25px;
     position: relative;
     cursor: pointer;
     transition: background-color 0.3s;
+    box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.4);
 }
 
 /* Стили для круга-переключателя */
 .toggle-circle {
-    width: 21px;
-    height: 21px;
-    background-color: #fff;
+    width: 16px;
+    height: 16px;
+    background-color: var(--color-text-light);;
     border-radius: 50%;
     position: absolute;
     top: 2px;
@@ -312,10 +312,10 @@
 
 /* Стили для включенного состояния */
 .toggle-btn.on {
-    background-color: #4CAF50;
+    background-color: #ab200e;
 }
 
 /* Положение круга во включенном состоянии */
 .toggle-btn.on .toggle-circle {
-    left: 27px;
+    left: 22px;
 }

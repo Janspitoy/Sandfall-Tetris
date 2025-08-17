@@ -13,17 +13,31 @@
   "author": "LitePix Team",
   "license": "Apache-2.0",
   "devDependencies": {
+    "admob-plus-cordova": "^2.0.0-alpha.19",
     "cordova-android": "^14.0.1",
+    "cordova-browser": "^7.0.0",
+    "cordova-ios": "^7.1.1",
+    "cordova-plugin-file": "^8.1.3",
+    "cordova-plugin-media": "^7.0.0",
     "cordova-plugin-nativestorage": "^2.3.2",
-    "cordova-plugin-splashscreen": "^6.0.1"
+    "cordova-plugin-splashscreen": "^6.0.1",
+    "cordova-plugin-vibration": "^3.1.1"
   },
   "cordova": {
     "platforms": [
-      "android"
+      "browser",
+      "android",
+      "ios"
     ],
     "plugins": {
       "cordova-plugin-nativestorage": {},
-      "cordova-plugin-splashscreen": {}
+      "cordova-plugin-splashscreen": {},
+      "cordova-plugin-media": {},
+      "cordova-plugin-vibration": {},
+      "admob-plus-cordova": {
+        "APP_ID_ANDROID": "ca-app-pub-4411114348896099~1525807767",
+        "PLAY_SERVICES_VERSION": "23.2.0"
+      }
     }
   }
 }

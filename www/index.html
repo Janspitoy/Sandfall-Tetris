@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self' data: gap: https://ssl.gstatic.com https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com 'unsafe-inline' 'unsafe-eval';
+                   script-src 'self' https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com 'unsafe-inline' 'unsafe-eval';
+                   style-src 'self' 'unsafe-inline';
+                   img-src 'self' data: https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com;">
+
     <link rel="stylesheet" href="css/index.css">
     <title>Sandfall Tetris</title>
 </head>
@@ -105,16 +111,7 @@
             <button class="control-btn right-btn" id="rightBtn">→</button>
         </div>
     </div>
-
-    <!-- Ad Screen -->
-    <div id="adScreen" class="screen hidden">
-        <div class="ad-modal">
-            <h2 class="text-2xl font-bold mb-4">Пожалуйста, подождите...</h2>
-            <p class="text-lg">Реклама будет показана через <span id="ad-timer">5</span> сек.</p>
-            <button id="closeAdBtn" class="btn mt-4 hidden">Пропустить</button>
-        </div>
-    </div>
+    <script src="cordova.js"></script>
     <script src="js/index.js"></script>
-
 </body>
 </html>

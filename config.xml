@@ -1,20 +1,22 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="io.cordova.hellocordova" version="1.0.0"
+<widget id="com.example.sandfalltetris" version="1.0.0"
         xmlns="http://www.w3.org/ns/widgets"
-        xmlns:cdv="http://cordova.apache.org/ns/1.0">
+        xmlns:cdv="http://cordova.apache.org/ns/1.0"
+        xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <name>Sandfill Tetris</name>
+    <name>Sandfall Tetris</name>
     <description>Physics-based Tetris where blocks fall like sand</description>
-    <author email="dev@cordova.apache.org" href="https://cordova.apache.org">
-        Apache Cordova Team
-    </author>
-
+    <author email="your.email@example.com" href="https://yourwebsite.com">Your Name</author>
     <content src="index.html" />
-    <allow-intent href="http://*/*" />
-    <allow-intent href="https://*/*" />
+
 
     <platform name="android">
-        <!-- Иконки -->
+        <allow-intent href="http://*/*" />
+        <allow-intent href="https://*/*" />
+        <access origin="*" />
+
+        <preference name="GradlePluginKotlinEnabled" value="true" />
+
         <icon density="ldpi" src="resources/android/icon/drawable-ldpi-icon.png" />
         <icon density="mdpi" src="resources/android/icon/drawable-mdpi-icon.png" />
         <icon density="hdpi" src="resources/android/icon/drawable-hdpi-icon.png" />
@@ -22,12 +24,35 @@
         <icon density="xxhdpi" src="resources/android/icon/drawable-xxhdpi-icon.png" />
         <icon density="xxxhdpi" src="resources/android/icon/drawable-xxxhdpi-icon.png" />
 
-        <!-- Android 12+ полноэкранный сплэш -->
         <preference name="AndroidWindowSplashScreenBackground" value="#FEF3DC" />
         <preference name="AndroidWindowSplashScreenAnimatedIcon" value="resources/android/splash/drawable-port-xxxhdpi-screen.png" />
         <preference name="AndroidWindowSplashScreenIconBackgroundColor" value="#FEF3DC" />
-        <preference name="SplashMaintainAspectRatio" value="false" />
-        <preference name="ShowSplashScreenSpinner" value="false" />
+        <preference name="SplashMaintainAspectRatio" value="true" />
         <preference name="SplashScreenDelay" value="3000" />
+
+
+        <config-file target="AndroidManifest.xml" parent="/manifest">
+            <uses-permission android:name="android.permission.INTERNET" />
+            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+            <uses-permission android:name="android.permission.VIBRATE" />
+            <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+        </config-file>
+
     </platform>
+
+    <platform name="ios">
+        <config-file target="*-Info.plist" parent="SKAdNetworkItems">
+            <array>
+                <dict>
+                    <key>SKAdNetworkIdentifier</key>
+                    <string>cstr6suwn9.skadnetwork</string>
+                </dict>
+            </array>
+        </config-file>
+    </platform>
+
+    <plugin name="admob-plus-cordova" spec="2.0.0-alpha.19">
+        <variable name="APP_ID_ANDROID" value="ca-app-pub-3940256099942544~3347511713" />
+        <variable name="APP_ID_IOS" value="ca-app-pub-3940256099942544~1458002511" />
+    </plugin>
 </widget>
