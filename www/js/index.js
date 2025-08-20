@@ -2,13 +2,18 @@ const TEST_INTERSTITIAL_ID = 'ca-app-pub-3940256099942544/1033173712';
 
 let interstitial;
 
-// ========== Параметры показа рекламы ==========
-let lastAdTimestamp = 0; // время последнего успешного показа (ms since epoch)
-const AD_COOLDOWN_MINUTES = 3; // 3 минуты
+let lastAdTimestamp = 0; // Время последнего успешного показа
+const AD_COOLDOWN_MINUTES = 5; // <-- Меняем на 5 минут для обычного кулдауна
 const AD_COOLDOWN_MS = AD_COOLDOWN_MINUTES * 60 * 1000;
-let adInProgress = false;
 
-// ====== (твой оригинальный) deviceready + observer ======
+const FIRST_AD_SESSION_DELAY_MINUTES = 3; // 3 минуты для первой рекламы в сессии
+const FIRST_AD_SESSION_DELAY_MS = FIRST_AD_SESSION_DELAY_MINUTES * 60 * 1000;
+
+let adInProgress = false;
+let isFirstSessionEver = false; // Флаг для самой первой сессии
+let sessionStartTime = 0; // Время начала текущей сессии
+let hasShownFirstAdOfSession = false; // Показали ли мы первую рекламу в этой сессии?
+
 document.addEventListener('deviceready', async () => {
   if (!window.admob) {
     return;
@@ -24,7 +29,6 @@ document.addEventListener('deviceready', async () => {
     console.warn('Interstitial initial load failed:', err);
   }
 
-  // Следим за открытием окна Game Over
   const gameOverEl = document.getElementById('gameOver');
 
   const observer = new MutationObserver(async (mutations) => {
@@ -33,14 +37,11 @@ document.addEventListener('deviceready', async () => {
         mutation.attributeName === 'style' ||
         mutation.attributeName === 'class'
       ) {
-        // Проверяем, что окно стало видимым
         const visible =
           gameOverEl.style.display !== 'none' &&
           !gameOverEl.classList.contains('hidden');
 
         if (visible) {
-          // Запускаем показ рекламы через небольшую задержку
-          // чтобы пользователь успел увидеть Game Over экран
           setTimeout(() => {
             handleGameOverAdFlow(gameOverEl);
           }, 1);
@@ -109,10 +110,44 @@ let lastCountdownTime = 0;
 let audioUnlocked = false;
 let clearHighscoresOn = false;
 let sfxGainNode = null;
-let flickerAnimations = []; // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+let flickerAnimations = [];
+let pieceJustLocked = false; // <-- NEW VARIABLE FOR COMBO LOGIC
+let hasSwipedHorizontally = false; // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+let lastDownPressTime = 0;          // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+const DOUBLE_TAP_THRESHOLD = 250; // <-- И ЭТУ (250 мс)
+let isSandFalling = false;    // Флаг, что песок в процессе падения
+let isSandDirty = true;       // Флаг, что песок нужно перерисовать в буфер
+let sandCanvas, sandCtx;      // Наш скрытый холст-"черновик"
+
+let pieceLockState = {
+    justLocked: false,
+    clearedThisTurn: false
+};
+
+let chainReactionCounter = 0; // Счетчик для цепной реакции в рамках одного хода
 
 // Game state flag
+let comboCounter = 0; // Счетчик для комбо
+
 let inGame = false;
+
+const SCORE_MILESTONES = [
+    0, 1000, 2500, 5000, 10000, 15000, 25000, 50000, 100000, 250000, 500000
+];
+
+const PROGRESS_BAR_COLORS = [
+    'linear-gradient(90deg, #4e54c8, #8f94fb)',   // 0 -> 1K
+    'linear-gradient(90deg, #1dd1a1, #48dbfb)',   // 1K -> 2.5K
+    'linear-gradient(90deg, #ff9f43, #ffdd59)',   // 2.5K -> 5K
+    'linear-gradient(90deg, #ff6b6b, #ee5253)',   // 5K -> 10K
+    'linear-gradient(90deg, #be2edd, #ff00ff)',   // 10K -> 15K
+    'linear-gradient(90deg, #feca57, #ff9f43)',   // 15K -> 25K
+    'linear-gradient(90deg, #00d2d3, #54a0ff)',   // 25K -> 50K
+    'linear-gradient(90deg, #20bf55, #01baef)',   // 50K -> 100K (New)
+    'linear-gradient(90deg, #ffc84d, #ff5c4d)',   // 100K -> 250K (New)
+    'linear-gradient(90deg, #e43a15, #e65245)',   // 250K -> 500K (New)
+    'linear-gradient(90deg, #c0c0c0, #ffffff)'    // 500K+ (New 'Platinum')
+];
 
 // DOM элементы
 const mainMenuScreen = document.getElementById('mainMenuScreen');
@@ -435,7 +470,10 @@ function fillRegion(x0,y0,w,h,color) {
     }
 }
 
+// index.js
+
 function updateSand() {
+    let moved = false;
     for (let y = SAND_H - 2; y >= 0; y--) {
         for (let x = 0; x < SAND_W; x++) {
             const particle = grid[y][x];
@@ -443,6 +481,7 @@ function updateSand() {
             if (grid[y+1] && grid[y+1][x] === null) {
                 grid[y][x] = null;
                 grid[y+1][x] = particle;
+                moved = true;
                 continue;
             }
             const dirs = Math.random() < 0.5 ? [[-1,1],[1,1]] : [[1,1],[-1,1]];
@@ -451,11 +490,14 @@ function updateSand() {
                 if (nx >= 0 && nx < SAND_W && ny < SAND_H && grid[ny][nx] === null) {
                     grid[y][x] = null;
                     grid[ny][nx] = particle;
+                    moved = true;
                     break;
                 }
             }
         }
     }
+    if (moved) isSandDirty = true;
+    return moved;
 }
 
 function findBridges() {
@@ -601,6 +643,9 @@ class Piece {
             fillRegion(bx * PPB, by * PPB, PPB, PPB, this.color);
         }
         playSound(soundEffects.fall);
+
+        isSandFalling = true;
+        isSandDirty = true;
     }
 }
 
@@ -610,7 +655,12 @@ function getCurrentFallInterval() {
     return Math.max(0.02, base * (fastDrop ? 0.15 : 1.0));
 }
 
+
 function spawnPiece() {
+    // ИСПРАВЛЕНИЕ: Сбрасываем счетчик цепной реакции в момент появления новой фигуры.
+    // Это гарантирует, что каждый ход начинается с чистого листа.
+    chainReactionCounter = 0;
+
     activePiece = nextPiece;
     nextPiece = new Piece();
     if (activePiece && !activePiece._canPlaceShape(activePiece.shape, activePiece.x, activePiece.y)) {
@@ -618,56 +668,90 @@ function spawnPiece() {
     }
 }
 
+// index.js
+
 function update(dt) {
     if (gameOver || paused) return;
 
-    if (!activePiece) spawnPiece();
+    // 1. Логика падающей фигуры
+    if (!activePiece && !isSandFalling) {
+        spawnPiece();
+    }
 
     if (activePiece) {
         fallTimer += dt;
         if (fallTimer >= getCurrentFallInterval()) {
             fallTimer = 0;
-            if (!activePiece.tryMove(0,1)) {
+            if (!activePiece.tryMove(0, 1)) {
                 activePiece.lockToSand();
                 activePiece = null;
+
+                chainReactionCounter = 0;
             }
         }
     }
 
-    updateSand();
+    // 2. Логика падения песка и комбо
+    if (isSandFalling) {
+        const sandMoved = updateSand();
 
-    const bridgeCells = findBridges();
-    if (bridgeCells.size > 0) {
-        const removed = clearCells(bridgeCells);
-        // Создаем анимацию для каждой удаленной частицы
-        bridgeCells.forEach(coordStr => {
-            const [x, y] = coordStr.split(',').map(Number);
-            flickerAnimations.push({
-                x: x,
-                y: y,
-                lifetime: 0.25, // Длительность анимации в секундах
-                maxLifetime: 0.25
-            });
-        });
+        // 3. Песок "устоялся", проверяем мосты
+        if (!sandMoved) {
+            isSandFalling = false;
+            const bridgeCells = findBridges();
 
-        let mult = 1.0;
-        if (removed >= 200) mult = 1.2;
-        if (removed >= 500) mult = 1.5;
-        if (removed >= 1000) mult = 2.0;
-        const gained = Math.floor(removed * mult);
-        score += gained;
-        removedParticlesTotal += removed;
-        level = difficultyLevel + Math.floor(removedParticlesTotal / 500);
-        updateUI();
-        playVibration();
-        playSound(soundEffects.clear);
+            if (bridgeCells.size > 0) {
+                // ИЗМЕНЕНИЕ: Увеличиваем счетчик цепной реакции при каждой очистке.
+                chainReactionCounter++;
+
+                const removed = clearCells(bridgeCells);
+                isSandDirty = true;
+
+                bridgeCells.forEach(coordStr => {
+                    const [x, y] = coordStr.split(',').map(Number);
+                    flickerAnimations.push({ x: x, y: y, lifetime: 0.25, maxLifetime: 0.25 });
+                });
+
+                let mult = (removed >= 200) ? 1.2 : 1.0;
+                if (removed >= 500) mult = 1.5;
+                if (removed >= 1000) mult = 2.0;
+                let gained = Math.floor(removed * mult);
+
+                // ИЗМЕНЕНИЕ: Комбо (мультипликатор и анимация) начинается только со ВТОРОЙ очистки.
+                if (chainReactionCounter > 1) {
+                    gained *= chainReactionCounter; // Умножаем очки на номер в цепи (x2, x3...)
+                    showComboAnimation(chainReactionCounter);
+                }
+
+                score += gained;
+                removedParticlesTotal += removed;
+                level = difficultyLevel + Math.floor(removedParticlesTotal / 500);
+                updateUI();
+                playVibration();
+                playSound(soundEffects.clear);
+
+                // После очистки песок может снова начать падать, продолжая цепную реакцию.
+                isSandFalling = true;
+
+            } else {
+                // Песок устоялся, мостов нет. Цепная реакция (если была) завершена.
+                // Ничего делать не нужно. Счетчик сбросится сам при падении новой фигуры.
+            }
+        }
     }
 }
 
-// ===== Рисование =====
-// ... (существующие функции рисования) ...
+function showComboAnimation(comboCount) {
+    const comboEl = document.getElementById('comboText');
+    if (!comboEl) return;
 
-// --> НАЧАЛО ДОБАВЛЕННОГО КОДА
+    comboEl.textContent = `COMBO x${comboCount}!`;
+
+    comboEl.classList.remove('animate');
+    void comboEl.offsetWidth;
+    comboEl.classList.add('animate');
+}
+
 
 function drawFlicker() {
     if (flickerAnimations.length === 0) return;
@@ -675,25 +759,21 @@ function drawFlicker() {
     flickerAnimations.forEach(p => {
         const progress = p.lifetime / p.maxLifetime; // От 1 до 0
 
-        // Эффект мерцания: быстро чередуем два ярких цвета
         const flickerColor = (Math.floor(Date.now() / 50) % 2 === 0)
             ? 'rgba(255, 255, 255, 0.9)'
             : 'rgba(255, 255, 150, 0.9)';
 
         ctx.fillStyle = flickerColor;
 
-        // Анимация затухания
         ctx.globalAlpha = progress;
 
         ctx.fillRect(p.x * PIXEL, p.y * PIXEL, PIXEL, PIXEL);
     });
 
-    // Сбрасываем прозрачность для остальной отрисовки
     ctx.globalAlpha = 1.0;
 }
 
 function updateFlicker(dt) {
-    // Обновляем анимации в обратном порядке, чтобы безопасно удалять из массива
     for (let i = flickerAnimations.length - 1; i >= 0; i--) {
         const p = flickerAnimations[i];
         p.lifetime -= dt;
@@ -702,7 +782,6 @@ function updateFlicker(dt) {
         }
     }
 }
-// --> КОНЕЦ ДОБАВЛЕННОГО КОДА
 
 function updateUI() {
     const s = document.getElementById('score');
@@ -713,6 +792,49 @@ function updateUI() {
     if (l) l.textContent = level;
     if (r) r.textContent = removedParticlesTotal;
     if (fs) fs.textContent = score;
+
+    const progressBar = document.getElementById('scoreProgressBar');
+    const currentScoreLabel = document.getElementById('currentScoreLabel');
+    const progressStartLabel = document.getElementById('progress-start');
+    const progressEndLabel = document.getElementById('progress-end');
+
+    if (!progressBar) return;
+
+    let currentMilestone = 0;
+    let nextMilestone = SCORE_MILESTONES[1];
+    let milestoneIndex = 0;
+
+    for (let i = 0; i < SCORE_MILESTONES.length - 1; i++) {
+        if (score >= SCORE_MILESTONES[i] && score < SCORE_MILESTONES[i + 1]) {
+            currentMilestone = SCORE_MILESTONES[i];
+            nextMilestone = SCORE_MILESTONES[i + 1];
+            milestoneIndex = i;
+            break;
+        }
+    }
+    if (score >= SCORE_MILESTONES[SCORE_MILESTONES.length - 1]) {
+        currentMilestone = SCORE_MILESTONES[SCORE_MILESTONES.length - 1];
+        nextMilestone = currentMilestone;
+        milestoneIndex = PROGRESS_BAR_COLORS.length - 1; // <-- Последний цвет
+    }
+
+    const range = nextMilestone - currentMilestone;
+    const progressInRange = score - currentMilestone;
+    const percentage = (range > 0) ? (progressInRange / range) * 100 : 100;
+
+    const formatScore = (num) => {
+        if (num >= 1000) {
+            return (num / 1000).toFixed(num % 1000 === 0 ? 0 : 1) + 'K';
+        }
+        return num;
+    };
+
+    progressBar.style.background = PROGRESS_BAR_COLORS[milestoneIndex];
+    progressBar.style.width = `${Math.min(percentage, 100)}%`;
+
+    currentScoreLabel.textContent = formatScore(score);
+    progressStartLabel.textContent = formatScore(currentMilestone);
+    progressEndLabel.textContent = formatScore(nextMilestone);
 }
 
 // ===== Рисование =====
@@ -776,11 +898,25 @@ function drawNextPiece() {
     }
 }
 
+// Новая функция для отрисовки песка в буфер ("черновик")
+function drawSandToBuffer() {
+    sandCtx.clearRect(0, 0, sandCanvas.width, sandCanvas.height);
+    for (let y = 0; y < SAND_H; y++) {
+        for (let x = 0; x < SAND_W; x++) {
+            const p = grid[y][x];
+            if (p !== null) {
+                sandCtx.fillStyle = `rgb(${p.color[0]}, ${p.color[1]}, ${p.color[2]})`;
+                sandCtx.fillRect(x * PIXEL, y * PIXEL, PIXEL, PIXEL);
+            }
+        }
+    }
+}
+
 function draw() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
     drawSand();
     drawActivePiece();
-    drawFlicker(); // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+    drawFlicker();
     ctx.strokeStyle = 'rgba(80,80,88,0.6)';
     ctx.lineWidth = 2;
     ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
@@ -802,119 +938,174 @@ function drawCountdown() {
 function setupInput() {
     gameArea = document.getElementById('gameArea');
 
-    document.getElementById('rotateBtn').addEventListener('pointerdown', e => {
+    const safeAddListener = (id, event, handler) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener(event, handler);
+        } else {
+            console.warn(`Element with ID '${id}' not found. Listener not attached.`);
+        }
+    };
+
+    safeAddListener('rotateBtn', 'pointerdown', e => {
         e.preventDefault();
         if (activePiece) activePiece.tryRotate();
         draw();
     });
 
-    document.getElementById('leftBtn').addEventListener('pointerdown', e => {
+    safeAddListener('leftBtn', 'pointerdown', e => {
         e.preventDefault();
-        if (activePiece) activePiece.tryMove(-1,0);
+        if (activePiece) activePiece.tryMove(-1, 0);
         draw();
     });
 
-    document.getElementById('rightBtn').addEventListener('pointerdown', e => {
+    safeAddListener('rightBtn', 'pointerdown', e => {
         e.preventDefault();
-        if (activePiece) activePiece.tryMove(1,0);
+        if (activePiece) activePiece.tryMove(1, 0);
         draw();
     });
 
-    document.getElementById('downBtn').addEventListener('pointerdown', e => {
-        e.preventDefault();
-        fastDrop = true;
-    });
+    const downBtn = document.getElementById('downBtn');
+    if (downBtn) {
+        downBtn.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            const now = performance.now();
+            if (now - lastDownPressTime < DOUBLE_TAP_THRESHOLD) {
+                if (!activePiece) return;
+                while (activePiece.tryMove(0, 1)) {}
+                activePiece.lockToSand();
+                activePiece = null;
+                lastDownPressTime = 0;
+                draw();
+            } else {
+                fastDrop = true;
+            }
+            lastDownPressTime = now;
+        });
 
-    document.getElementById('downBtn').addEventListener('pointerup', e => {
-        e.preventDefault();
-        fastDrop = false;
-    });
+        downBtn.addEventListener('pointerup', e => {
+            e.preventDefault();
+            fastDrop = false;
+        });
 
-    document.getElementById('downBtn').addEventListener('pointercancel', e => {
-        fastDrop = false;
-    });
+        downBtn.addEventListener('pointercancel', e => {
+            fastDrop = false;
+        });
+    } else {
+        console.warn("Element with ID 'downBtn' not found. Listeners not attached.");
+    }
 
-    gameArea.addEventListener('touchstart', e => {
-        if (e.touches.length === 1) {
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-        }
-    }, { passive: false });
+    if (gameArea) {
+        gameArea.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                hasSwipedHorizontally = false;
+            }
+        }, { passive: false });
+
+        gameArea.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if (paused || gameOver || !activePiece || e.touches.length !== 1) {
+                return;
+            }
+            const currentX = e.touches[0].clientX;
+            const deltaX = currentX - startX;
+            const blockWidthInPixels = gameArea.offsetWidth / BLOCK_W;
+            if (Math.abs(deltaX) > blockWidthInPixels) {
+                if (deltaX > 0) {
+                    activePiece.tryMove(1, 0);
+                } else {
+                    activePiece.tryMove(-1, 0);
+                }
+                startX = currentX;
+                hasSwipedHorizontally = true;
+                draw();
+            }
+        }, { passive: false });
+
 
     gameArea.addEventListener('touchend', e => {
+        if (paused || gameOver || !activePiece) return;
         const endX = e.changedTouches[0].clientX;
         const endY = e.changedTouches[0].clientY;
         const deltaX = endX - startX;
         const deltaY = endY - startY;
-        const swipeThreshold = 30;
+        const swipeThreshold = 50;
+        const tapThreshold = 25;
 
-        if (Math.abs(deltaY) > swipeThreshold) {
+        // ИЗМЕНЕНИЕ: Добавляем проверку !hasSwipedHorizontally
+        // Теперь свайп вниз сработает, только если в рамках этого жеста НЕ БЫЛО горизонтального сдвига.
+        if (!hasSwipedHorizontally && deltaY > swipeThreshold && deltaY > Math.abs(deltaX) * 1.5) {
+            // Вертикальный свайп вниз
             fastDrop = false;
-            while (activePiece && activePiece.tryMove(0,1)) {}
+            while (activePiece && activePiece.tryMove(0, 1)) {}
             if (activePiece) {
                 activePiece.lockToSand();
                 activePiece = null;
             }
-        } else if (Math.abs(deltaX) < 10) {
-            if (activePiece) {
-                activePiece.tryRotate();
-                draw();
-            }
+        } else if (!hasSwipedHorizontally && Math.abs(deltaX) < tapThreshold && Math.abs(deltaY) < tapThreshold) {
+            // Тап для ротации
+            activePiece.tryRotate();
         }
+        draw();
     }, { passive: false });
-
-    gameArea.addEventListener('touchmove', e => {
-         e.preventDefault();
-         if (paused || gameOver || !activePiece || e.touches.length !== 1) return;
-         const currentX = e.touches[0].clientX;
-         const deltaX = currentX - startX;
-         const swipeThreshold = 30;
-         if (Math.abs(deltaX) > swipeThreshold) {
-             if (deltaX > 0) {
-                 if (activePiece.tryMove(1, 0)) draw();
-             } else {
-                 if (activePiece.tryMove(-1, 0)) draw();
-             }
-             startX = currentX;
-             lastSwipeTime = performance.now();
-         }
-    }, { passive: false });
+    } else {
+         console.warn("Element with ID 'gameArea' not found. Touch controls disabled.");
+    }
 
     window.addEventListener('keydown', e => {
-        if (gameOver || paused) return;
-        if (!activePiece) return;
-        if (e.key === 'ArrowLeft') {
-            activePiece.tryMove(-1,0);
-            draw();
-            e.preventDefault();
-        }
-        else if (e.key === 'ArrowRight') {
-            activePiece.tryMove(1,0);
-            draw();
-            e.preventDefault();
-        }
-        else if (e.key === 'ArrowDown') {
-            fastDrop = true;
-            e.preventDefault();
-        }
-        else if (e.key === 'ArrowUp' || e.key === 'x' || e.key === 'X') {
-            activePiece.tryRotate();
-            draw();
-            e.preventDefault();
-        }
-        else if (e.key === ' ') {
-            e.preventDefault();
-            if (!activePiece) return;
-            while (activePiece.tryMove(0,1)) {}
-            activePiece.lockToSand();
-            activePiece = null;
-        } else if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
-            togglePause();
+        if (gameOver || paused || !activePiece) return;
+        switch (e.key) {
+            case 'ArrowLeft':
+                activePiece.tryMove(-1, 0);
+                draw();
+                e.preventDefault();
+                break;
+            case 'ArrowRight':
+                activePiece.tryMove(1, 0);
+                draw();
+                e.preventDefault();
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                const now = performance.now();
+                if (now - lastDownPressTime < DOUBLE_TAP_THRESHOLD) {
+                    while (activePiece.tryMove(0, 1)) {}
+                    activePiece.lockToSand();
+                    activePiece = null;
+                    lastDownPressTime = 0;
+                    draw();
+                } else {
+                    fastDrop = true;
+                }
+                lastDownPressTime = now;
+                break;
+            case 'ArrowUp':
+            case 'x':
+            case 'X':
+                activePiece.tryRotate();
+                draw();
+                e.preventDefault();
+                break;
+            case ' ':
+                e.preventDefault();
+                while (activePiece.tryMove(0, 1)) {}
+                activePiece.lockToSand();
+                activePiece = null;
+                break;
+            case 'p':
+            case 'P':
+            case 'Escape':
+                togglePause();
+                break;
         }
     });
 
     window.addEventListener('keyup', e => {
-        if (e.key === 'ArrowDown') fastDrop = false;
+        if (e.key === 'ArrowDown') {
+            fastDrop = false;
+        }
     });
 }
 
@@ -982,7 +1173,7 @@ function countdownLoop(now) {
 function showGameOver() {
     stopMusic();
     inGame = false;
-    playSound(soundEffects.gameover); // <-- ДОБАВЛЕННАЯ СТРОКА
+    playSound(soundEffects.gameover);
     saveSettings();
     document.getElementById('gameOver').style.display = 'flex';
     document.getElementById('finalScore').textContent = score;
@@ -1034,9 +1225,8 @@ function loop(now) {
     const dt = clamp(t - lastTime, 0, 0.05);
     lastTime = t;
     update(dt);
-    updateFlicker(dt); // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
+    updateFlicker(dt);
 
-    drawFlicker(); // <-- ДОБАВЬТЕ ЭТУ СТРОКУ
     draw();
     if (!gameOver) {
         requestAnimationFrame(loop);
@@ -1128,21 +1318,56 @@ async function initEverything() {
 
     await displayHighscores();
 }
+// Оборачиваем всю инициализацию в одну функцию
+function initGame() {
+    return new Promise(resolve => {
+        // Эта функция будет запускать всю основную логику
+        const startApp = async () => {
+            console.log("Приложение готово. Запускаем инициализацию.");
 
-// Универсальная инициализация:
-if (window.cordova) {
-    document.addEventListener('deviceready', async () => {
-        console.log("Устройство готово. Запускаем инициализацию.");
-        onDeviceReady();
-        await initAudio();
-        await initEverything();
-    }, false);
-} else {
-    document.addEventListener('DOMContentLoaded', async () => {
-        console.log("Страница загружена. Запускаем инициализацию для браузера.");
-        await initAudio();
-        await initEverything();
-        window.addEventListener('beforeunload', stopMusic);
+            // Вызываем платформо-зависимые настройки
+            if (window.cordova) {
+                onDeviceReady();
+            } else {
+                window.addEventListener('beforeunload', stopMusic);
+            }
+
+            // Логика сессий
+            sessionStartTime = Date.now();
+            const hasHadFirstSession = localStorage.getItem('hasHadFirstSession');
+            if (!hasHadFirstSession) {
+                console.log("Первая сессия в истории. Реклама не будет показываться.");
+                isFirstSessionEver = true;
+                localStorage.setItem('hasHadFirstSession', 'true');
+            } else {
+                console.log("Это не первая сессия. Реклама включена по правилам.");
+                isFirstSessionEver = false;
+            }
+
+            // Инициализация рекламы (если необходимо)
+            if (window.admob && interstitial) {
+                try {
+                    await interstitial.load();
+                } catch (err) {
+                    console.warn('Interstitial initial load failed:', err);
+                }
+            }
+
+            // Загрузка остальных ресурсов
+            await initAudio();
+            await initEverything();
+
+            // Сообщаем, что всё готово, ТОЛЬКО ПОСЛЕ завершения startApp
+            resolve();
+        };
+
+        // Определяем, какое событие слушать: deviceready для Cordova или DOMContentLoaded для браузера
+        if (window.cordova) {
+            document.addEventListener('deviceready', startApp, false);
+        } else {
+            // Используем DOMContentLoaded, так как он срабатывает раньше 'load'
+            document.addEventListener('DOMContentLoaded', startApp, false);
+        }
     });
 }
 
@@ -1199,74 +1424,123 @@ function hideAdLoadingIndicator(container) {
 
 // Основной поток показа рекламы после появления Game Over
 async function handleGameOverAdFlow(gameOverEl) {
-    // Защита от многократного одновременного вызова
     if (adInProgress) return;
     adInProgress = true;
-
-    console.log('Начинаем показ рекламы после Game Over');
-
-    // Сразу блокируем кнопки на время показа рекламы
+    console.log('Проверяем условия для показа рекламы...');
     disableGameOverButtons();
 
-    // Показываем небольшой индикатор (опционально)
-    showAdLoadingIndicator(gameOverEl);
-
     try {
-        const now = Date.now();
+        // Правило 1: Никогда не показывать рекламу в самой первой сессии
+        if (isFirstSessionEver) {
+            console.log("Первая сессия в истории, реклама отключена.");
+            return; // Выходим, рекламу не показываем
+        }
 
-        // Загружаем последний таймстамп из localStorage
+        const now = Date.now();
         const persisted = localStorage.getItem('lastInterstitialTs');
         if (persisted) lastAdTimestamp = parseInt(persisted, 10) || 0;
 
-        // Проверяем можно ли показывать рекламу (по кулдауну)
-        if (!lastAdTimestamp || (now - lastAdTimestamp) >= AD_COOLDOWN_MS) {
-            if (!interstitial) {
-                console.warn('Interstitial не инициализирован.');
+        let shouldShowAd = false;
+
+        if (!hasShownFirstAdOfSession) {
+            // Правило 2: Логика для ПЕРВОЙ рекламы в текущей сессии
+            const sessionDuration = now - sessionStartTime;
+            if (sessionDuration >= FIRST_AD_SESSION_DELAY_MS) {
+                console.log(`Сессия длится > ${FIRST_AD_SESSION_DELAY_MINUTES} мин. Пора показать первую рекламу.`);
+                shouldShowAd = true;
             } else {
-                try {
-                    const loaded = await interstitial.isLoaded();
-                    if (!loaded) {
-                        console.log('Загружаем рекламу...');
-                        await interstitial.load();
-                    }
-
-                    console.log('Показываем рекламу...');
-                    await interstitial.show();
-
-                    // Если show() завершился без исключения — считаем показ успешным
-                    lastAdTimestamp = Date.now();
-                    localStorage.setItem('lastInterstitialTs', String(lastAdTimestamp));
-                    console.log('Реклама успешно показана');
-
-                } catch (err) {
-                    console.warn('Ошибка при показе рекламы:', err);
-                    // не критично — просто продолжаем
-                }
+                const minutesLeft = Math.ceil((FIRST_AD_SESSION_DELAY_MS - sessionDuration) / 60000);
+                console.log(`Для показа первой рекламы нужно играть еще ~${minutesLeft} мин.`);
             }
         } else {
-            // кулдаун еще активен
-            const msLeft = AD_COOLDOWN_MS - (now - lastAdTimestamp);
-            const minutesLeft = Math.ceil(msLeft / (60 * 1000));
-            console.log(`Реклама на кулдауне. Осталось минут: ${minutesLeft}`);
+            // Правило 3: Логика для ПОСЛЕДУЮЩИХ реклам в сессии
+            if (now - lastAdTimestamp >= AD_COOLDOWN_MS) {
+                console.log(`Кулдаун в ${AD_COOLDOWN_MINUTES} мин прошел. Показываем рекламу.`);
+                shouldShowAd = true;
+            } else {
+                const minutesLeft = Math.ceil((AD_COOLDOWN_MS - (now - lastAdTimestamp)) / 60000);
+                console.log(`Реклама на кулдауне. Осталось ~${minutesLeft} мин.`);
+            }
         }
 
-        // В любом случае ждем минимальное время блокировки кнопок (1.5-2 секунды)
-        // чтобы пользователь не мог сразу нажать кнопку
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        if (shouldShowAd && interstitial) {
+            showAdLoadingIndicator(gameOverEl);
+            const loaded = await interstitial.isLoaded();
+            if (!loaded) {
+                console.log('Загружаем рекламу...');
+                await interstitial.load();
+            }
+            console.log('Показываем рекламу...');
+            await interstitial.show();
 
-    } catch (error) {
-        console.error('Ошибка в потоке рекламы:', error);
+            // Успешный показ
+            lastAdTimestamp = Date.now();
+            localStorage.setItem('lastInterstitialTs', String(lastAdTimestamp));
+            hasShownFirstAdOfSession = true; // Отмечаем, что первая реклама в сессии была показана
+            console.log('Реклама успешно показана');
+        }
+
+    } catch (err) {
+        console.warn('Ошибка при показе/загрузке рекламы:', err);
     } finally {
-        // Всегда разблокируем UI
+        // Всегда ждем немного и разблокируем UI
+        await new Promise(resolve => setTimeout(resolve, 1500));
         hideAdLoadingIndicator(gameOverEl);
         enableGameOverButtons();
-
-        // Убеждаемся что Game Over окно остается видимым
-        if (gameOverEl) {
-            gameOverEl.style.display = 'flex';
-        }
-
         adInProgress = false;
-        console.log('Показ рекламы завершен, кнопки разблокированы');
+        console.log('Проверка рекламы завершена, UI разблокирован.');
     }
 }
+
+// index.js
+
+/**
+ * Главная функция, запускающая приложение.
+ * Оркестрирует показ экрана загрузки, загрузку ресурсов и переход к главному меню.
+ */
+function initializeApp() {
+    const mainMenuScreen = document.getElementById('mainMenuScreen');
+    const progressBar = document.getElementById('loadingProgressBar');
+    const progressText = document.getElementById('loadingProgressText');
+    const loadingScreen = document.getElementById('loadingScreen');
+
+    loadingScreen.style.display = 'flex';
+    loadingScreen.classList.add('active');
+
+    const MIN_LOAD_TIME = 3000;
+    const minTimePromise = new Promise(resolve => setTimeout(resolve, MIN_LOAD_TIME));
+    const assetsPromise = initGame();
+
+    let startTime = performance.now();
+    let animationFrameId;
+
+    progressBar.style.transition = 'none';
+
+    function animateProgress(now) {
+        const elapsedTime = now - startTime;
+        const progress = Math.min(0.95, elapsedTime / MIN_LOAD_TIME);
+        const displayPercent = Math.floor(progress * 100);
+
+        progressBar.style.width = `${displayPercent}%`;
+        progressText.textContent = `${displayPercent}%`;
+
+        if (progress < 0.9) {
+            animationFrameId = requestAnimationFrame(animateProgress);
+        }
+    }
+    animationFrameId = requestAnimationFrame(animateProgress);
+
+    Promise.all([minTimePromise, assetsPromise]).then(() => {
+        cancelAnimationFrame(animationFrameId);
+
+        progressBar.style.transition = 'width 0.8s ease-out';
+        progressBar.style.width = '100%';
+        progressText.textContent = '100%';
+
+        setTimeout(() => {
+            showScreen(mainMenuScreen);
+        }, 400);
+    });
+}
+
+initializeApp();

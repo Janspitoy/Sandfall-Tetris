@@ -1,11 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
 :root {
-    --aspect-ratio: 8 / 15;
+    --aspect-ratio:  8 / 16;
     --color-primary: #9d4e28;
     --color-secondary: #f4c244;
-    --color-background-dark: #3a2e2d;
-    --color-background-menu: #5c453c;
+    --color-background-dark: #501716;
+    --color-background-menu: #732726;
     --color-text-light: #e0d0b0;
     --color-text-medium: #a89477;
     --color-success: #3c8d3c;

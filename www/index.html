@@ -10,15 +10,23 @@
                    img-src 'self' data: https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com;">
 
     <link rel="stylesheet" href="css/index.css">
-    <title>Sandfall Tetris</title>
+    <title>Sandfall: Blocks</title>
 </head>
 <body>
-    <!-- Main Menu Screen -->
-    <div id="mainMenuScreen" class="screen active">
+    <div id="loadingScreen" class="screen active">
+        <div class="logo">
+        </div>
+        <div class="progress-bar-wrapper" style="width: 80%; max-width: 400px; margin-top: 25px;">
+            <div id="loadingProgressBar" class="progress-bar"></div>
+            <div id="loadingProgressText" class="progress-label">0%</div>
+        </div>
+    </div>
+
+    <div id="mainMenuScreen" class="screen">
         <div class="screen-content main-menu">
             <div class="logo">
                 <span class="sand">Sand</span><span class="tetris">fall</span><br>
-                <span class="tetris">Tetris</span>
+                <span class="tetris">Blocks</span>
             </div>
             <h3>Select difficulty:</h3>
             <div class="difficulty-options">
@@ -31,13 +39,12 @@
                 <button class="action-btn" id="settingsBtn">Settings</button>
             </div>
             <div class="highscores-list">
-                <h4>Records 🏆</h4>
+                <h3>Records 🏆</h3>
                 <ol id="highscoresList"></ol>
             </div>
         </div>
     </div>
 
-    <!-- Settings Screen -->
     <div id="settingsScreen" class="screen">
         <div class="screen-content settings-menu">
             <h2>Settings</h2>
@@ -68,7 +75,6 @@
         </div>
     </div>
 
-    <!-- Pause Screen -->
     <div id="pauseScreen" class="screen">
         <div class="screen-content pause-screen">
             <h2>Pause</h2>
@@ -80,7 +86,6 @@
         </div>
     </div>
 
-    <!-- Game Container -->
     <div class="game-container" id="gameContainer">
         <button class="pause-btn" id="pauseBtn">❚❚</button>
         <div class="ui-panel">
@@ -89,13 +94,24 @@
                 <div>Level: <span id="level">1</span></div>
                 <div>Destroyed: <span id="removed">0</span></div>
             </div>
+
             <div class="next-piece">
                 <canvas id="nextCanvas" width="80" height="80"></canvas>
             </div>
         </div>
         <div class="game-wrapper">
+            <div class="progress-container">
+                <span id="progress-start">0</span>
+                <div class="progress-bar-wrapper">
+                    <div id="scoreProgressBar" class="progress-bar"></div>
+                    <div id="currentScoreLabel" class="progress-label">0</div>
+                </div>
+                <span id="progress-end">1K</span>
+            </div>
             <div class="game-area" id="gameArea">
                 <canvas id="gameCanvas" width="200" height="400"></canvas>
+
+                <div id="comboText" class="combo-text"></div>
                 <div id="gameOver" class="game-over">
                     <h2>Game Over!</h2>
                     <p>Final score: <span id="finalScore">0</span></p>
@@ -111,7 +127,9 @@
             <button class="control-btn right-btn" id="rightBtn">→</button>
         </div>
     </div>
+
     <script src="cordova.js"></script>
     <script src="js/index.js"></script>
+
 </body>
 </html>
