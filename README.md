@@ -1,10 +1,10 @@
 ## 🎮 Gameplay & Features
 
-Sandfall-Tetris offers an intuitive and engaging interface with multiple menus, controls, and customizable settings. Below is a detailed overview of the game's UI and features based on the current implementation:
+Sandfall-Blocks offers an intuitive and engaging interface with multiple menus, controls, and customizable settings. Below is a detailed overview of the game's UI and features based on the current implementation:
 
 ### 🕹 Main Menu
 
-- **Game Logo:** Stylish "Sandfall Tetris" branding on the main screen.
+- **Game Logo:** Stylish "Sandfall Blocks" branding on the main screen.
 - **Difficulty Selection:**  
   Choose your challenge level from three options:
   - Easy
@@ -79,6 +79,7 @@ To build and run the Sandfall-Tetris project, you need:
 
 ## 🎯 Summary
 
-Sandfall-Tetris blends classic Tetris gameplay with physics-driven block mechanics for a uniquely fun experience. Its user-friendly interface, customizable settings, and touch-friendly controls make it perfect for Android devices of all skill levels.
+Sandfall-Blocks blends classic Tetroids gameplay with physics-driven block mechanics for a uniquely fun experience. Its user-friendly interface, customizable settings, and touch-friendly controls make it perfect for Android devices of all skill levels.
 
 Try out different difficulties, customize your sound and vibration preferences, and aim to beat your high scores! 🏆
+
