@@ -1,18 +1,17 @@
-const TEST_INTERSTITIAL_ID = 'ca-app-pub-3940256099942544/1033173712';
-
+const INTERSTITIAL_ID_ANDROID = 'ca-app-pub-4411114348896099/8213724795';
 let interstitial;
 
-let lastAdTimestamp = 0; // Время последнего успешного показа
-const AD_COOLDOWN_MINUTES = 5; // <-- Меняем на 5 минут для обычного кулдауна
+// --- Переменные для управления рекламой ---
+let lastAdTimestamp = 0;
+const AD_COOLDOWN_MINUTES = 5;
 const AD_COOLDOWN_MS = AD_COOLDOWN_MINUTES * 60 * 1000;
-
-const FIRST_AD_SESSION_DELAY_MINUTES = 3; // 3 минуты для первой рекламы в сессии
+const FIRST_AD_SESSION_DELAY_MINUTES = 3;
 const FIRST_AD_SESSION_DELAY_MS = FIRST_AD_SESSION_DELAY_MINUTES * 60 * 1000;
-
 let adInProgress = false;
-let isFirstSessionEver = false; // Флаг для самой первой сессии
-let sessionStartTime = 0; // Время начала текущей сессии
-let hasShownFirstAdOfSession = false; // Показали ли мы первую рекламу в этой сессии?
+let isFirstSessionEver = false;
+let sessionStartTime = 0;
+let hasShownFirstAdOfSession = false;
+
 
 document.addEventListener('deviceready', async () => {
   if (!window.admob) {
@@ -20,27 +19,21 @@ document.addEventListener('deviceready', async () => {
   }
 
   interstitial = new admob.InterstitialAd({
-    adUnitId: TEST_INTERSTITIAL_ID,
+    adUnitId: INTERSTITIAL_ID_ANDROID,
   });
-
   try {
     await interstitial.load();
   } catch (err) {
     console.warn('Interstitial initial load failed:', err);
   }
 
-  const gameOverEl = document.getElementById('gameOver');
 
+  // --- Observer для Game Over (без изменений) ---
+  const gameOverEl = document.getElementById('gameOver');
   const observer = new MutationObserver(async (mutations) => {
     for (let mutation of mutations) {
-      if (
-        mutation.attributeName === 'style' ||
-        mutation.attributeName === 'class'
-      ) {
-        const visible =
-          gameOverEl.style.display !== 'none' &&
-          !gameOverEl.classList.contains('hidden');
-
+      if (mutation.attributeName === 'style' || mutation.attributeName === 'class') {
+        const visible = gameOverEl.style.display !== 'none' && !gameOverEl.classList.contains('hidden');
         if (visible) {
           setTimeout(() => {
             handleGameOverAdFlow(gameOverEl);
@@ -49,11 +42,7 @@ document.addEventListener('deviceready', async () => {
       }
     }
   });
-
-  observer.observe(gameOverEl, {
-    attributes: true,
-    attributeFilter: ['style', 'class'],
-  });
+  observer.observe(gameOverEl, { attributes: true, attributeFilter: ['style', 'class'] });
 });
 
 // ====== Константы и данные ======
@@ -124,6 +113,7 @@ let pieceLockState = {
     clearedThisTurn: false
 };
 
+
 let chainReactionCounter = 0; // Счетчик для цепной реакции в рамках одного хода
 
 // Game state flag
@@ -131,23 +121,6 @@ let comboCounter = 0; // Счетчик для комбо
 
 let inGame = false;
 
-const SCORE_MILESTONES = [
-    0, 1000, 2500, 5000, 10000, 15000, 25000, 50000, 100000, 250000, 500000
-];
-
-const PROGRESS_BAR_COLORS = [
-    'linear-gradient(90deg, #4e54c8, #8f94fb)',   // 0 -> 1K
-    'linear-gradient(90deg, #1dd1a1, #48dbfb)',   // 1K -> 2.5K
-    'linear-gradient(90deg, #ff9f43, #ffdd59)',   // 2.5K -> 5K
-    'linear-gradient(90deg, #ff6b6b, #ee5253)',   // 5K -> 10K
-    'linear-gradient(90deg, #be2edd, #ff00ff)',   // 10K -> 15K
-    'linear-gradient(90deg, #feca57, #ff9f43)',   // 15K -> 25K
-    'linear-gradient(90deg, #00d2d3, #54a0ff)',   // 25K -> 50K
-    'linear-gradient(90deg, #20bf55, #01baef)',   // 50K -> 100K (New)
-    'linear-gradient(90deg, #ffc84d, #ff5c4d)',   // 100K -> 250K (New)
-    'linear-gradient(90deg, #e43a15, #e65245)',   // 250K -> 500K (New)
-    'linear-gradient(90deg, #c0c0c0, #ffffff)'    // 500K+ (New 'Platinum')
-];
 
 // DOM элементы
 const mainMenuScreen = document.getElementById('mainMenuScreen');
@@ -203,6 +176,9 @@ async function initAudio() {
         soundEffects.clear = await loadAudio('audio/clear.wav');
         soundEffects.rotate = await loadAudio('audio/rotate.wav');
         soundEffects.gameover = await loadAudio('audio/gameover.wav');
+
+        // ---> ВОТ СТРОКА, КОТОРУЮ НУЖНО ДОБАВИТЬ <---
+        soundEffects.click = await loadAudio('audio/button_click.mp3');
 
     } catch (error) {
         console.log('Audio files not found, continuing without audio');
@@ -470,8 +446,6 @@ function fillRegion(x0,y0,w,h,color) {
     }
 }
 
-// index.js
-
 function updateSand() {
     let moved = false;
     for (let y = SAND_H - 2; y >= 0; y--) {
@@ -609,12 +583,10 @@ class Piece {
             if (this._regionCollides(bx,by)) return false;
         }
         this.x = nx; this.y = ny;
-        playVibration();
-
+        // playVibration(); // *** ИЗМЕНЕНИЕ: Удалено отсюда для более точного контроля
         if (dx !== 0) {
             playSound(soundEffects.rotate);
         }
-
         return true;
     }
 
@@ -643,7 +615,7 @@ class Piece {
             fillRegion(bx * PPB, by * PPB, PPB, PPB, this.color);
         }
         playSound(soundEffects.fall);
-
+        playVibration(); // *** ИЗМЕНЕНИЕ: Добавлена вибрация при фиксации фигуры
         isSandFalling = true;
         isSandDirty = true;
     }
@@ -655,11 +627,10 @@ function getCurrentFallInterval() {
     return Math.max(0.02, base * (fastDrop ? 0.15 : 1.0));
 }
 
-
 function spawnPiece() {
-    // ИСПРАВЛЕНИЕ: Сбрасываем счетчик цепной реакции в момент появления новой фигуры.
-    // Это гарантирует, что каждый ход начинается с чистого листа.
     chainReactionCounter = 0;
+    console.log(`--- НОВАЯ ФИГУРА --- Счётчик сброшен на: ${chainReactionCounter}`);
+
 
     activePiece = nextPiece;
     nextPiece = new Piece();
@@ -668,12 +639,9 @@ function spawnPiece() {
     }
 }
 
-// index.js
-
 function update(dt) {
     if (gameOver || paused) return;
 
-    // 1. Логика падающей фигуры
     if (!activePiece && !isSandFalling) {
         spawnPiece();
     }
@@ -683,75 +651,58 @@ function update(dt) {
         if (fallTimer >= getCurrentFallInterval()) {
             fallTimer = 0;
             if (!activePiece.tryMove(0, 1)) {
+                console.log('--- ФИГУРА ЗАБЛОКИРОВАНА ---');
                 activePiece.lockToSand();
                 activePiece = null;
-
                 chainReactionCounter = 0;
             }
         }
     }
 
-    // 2. Логика падения песка и комбо
     if (isSandFalling) {
         const sandMoved = updateSand();
-
-        // 3. Песок "устоялся", проверяем мосты
         if (!sandMoved) {
             isSandFalling = false;
             const bridgeCells = findBridges();
-
             if (bridgeCells.size > 0) {
-                // ИЗМЕНЕНИЕ: Увеличиваем счетчик цепной реакции при каждой очистке.
                 chainReactionCounter++;
+                console.log(`%c+++ ЛИНИЯ ОЧИЩЕНА! Счётчик стал: ${chainReactionCounter}`, 'color: blue;');
 
                 const removed = clearCells(bridgeCells);
                 isSandDirty = true;
-
                 bridgeCells.forEach(coordStr => {
                     const [x, y] = coordStr.split(',').map(Number);
                     flickerAnimations.push({ x: x, y: y, lifetime: 0.25, maxLifetime: 0.25 });
                 });
-
                 let mult = (removed >= 200) ? 1.2 : 1.0;
                 if (removed >= 500) mult = 1.5;
                 if (removed >= 1000) mult = 2.0;
                 let gained = Math.floor(removed * mult);
-
-                // ИЗМЕНЕНИЕ: Комбо (мультипликатор и анимация) начинается только со ВТОРОЙ очистки.
                 if (chainReactionCounter > 1) {
-                    gained *= chainReactionCounter; // Умножаем очки на номер в цепи (x2, x3...)
+                    gained *= chainReactionCounter;
                     showComboAnimation(chainReactionCounter);
                 }
-
                 score += gained;
                 removedParticlesTotal += removed;
                 level = difficultyLevel + Math.floor(removedParticlesTotal / 500);
                 updateUI();
                 playVibration();
                 playSound(soundEffects.clear);
-
-                // После очистки песок может снова начать падать, продолжая цепную реакцию.
                 isSandFalling = true;
-
-            } else {
-                // Песок устоялся, мостов нет. Цепная реакция (если была) завершена.
-                // Ничего делать не нужно. Счетчик сбросится сам при падении новой фигуры.
             }
         }
     }
 }
 
 function showComboAnimation(comboCount) {
+    console.log(`%c!!! ПОКАЗ КОМБО !!! Счётчик: ${comboCount}`, 'color: red; font-weight: bold;');
     const comboEl = document.getElementById('comboText');
     if (!comboEl) return;
-
     comboEl.textContent = `COMBO x${comboCount}!`;
-
     comboEl.classList.remove('animate');
     void comboEl.offsetWidth;
     comboEl.classList.add('animate');
 }
-
 
 function drawFlicker() {
     if (flickerAnimations.length === 0) return;
@@ -792,49 +743,6 @@ function updateUI() {
     if (l) l.textContent = level;
     if (r) r.textContent = removedParticlesTotal;
     if (fs) fs.textContent = score;
-
-    const progressBar = document.getElementById('scoreProgressBar');
-    const currentScoreLabel = document.getElementById('currentScoreLabel');
-    const progressStartLabel = document.getElementById('progress-start');
-    const progressEndLabel = document.getElementById('progress-end');
-
-    if (!progressBar) return;
-
-    let currentMilestone = 0;
-    let nextMilestone = SCORE_MILESTONES[1];
-    let milestoneIndex = 0;
-
-    for (let i = 0; i < SCORE_MILESTONES.length - 1; i++) {
-        if (score >= SCORE_MILESTONES[i] && score < SCORE_MILESTONES[i + 1]) {
-            currentMilestone = SCORE_MILESTONES[i];
-            nextMilestone = SCORE_MILESTONES[i + 1];
-            milestoneIndex = i;
-            break;
-        }
-    }
-    if (score >= SCORE_MILESTONES[SCORE_MILESTONES.length - 1]) {
-        currentMilestone = SCORE_MILESTONES[SCORE_MILESTONES.length - 1];
-        nextMilestone = currentMilestone;
-        milestoneIndex = PROGRESS_BAR_COLORS.length - 1; // <-- Последний цвет
-    }
-
-    const range = nextMilestone - currentMilestone;
-    const progressInRange = score - currentMilestone;
-    const percentage = (range > 0) ? (progressInRange / range) * 100 : 100;
-
-    const formatScore = (num) => {
-        if (num >= 1000) {
-            return (num / 1000).toFixed(num % 1000 === 0 ? 0 : 1) + 'K';
-        }
-        return num;
-    };
-
-    progressBar.style.background = PROGRESS_BAR_COLORS[milestoneIndex];
-    progressBar.style.width = `${Math.min(percentage, 100)}%`;
-
-    currentScoreLabel.textContent = formatScore(score);
-    progressStartLabel.textContent = formatScore(currentMilestone);
-    progressEndLabel.textContent = formatScore(nextMilestone);
 }
 
 // ===== Рисование =====
@@ -938,63 +846,6 @@ function drawCountdown() {
 function setupInput() {
     gameArea = document.getElementById('gameArea');
 
-    const safeAddListener = (id, event, handler) => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.addEventListener(event, handler);
-        } else {
-            console.warn(`Element with ID '${id}' not found. Listener not attached.`);
-        }
-    };
-
-    safeAddListener('rotateBtn', 'pointerdown', e => {
-        e.preventDefault();
-        if (activePiece) activePiece.tryRotate();
-        draw();
-    });
-
-    safeAddListener('leftBtn', 'pointerdown', e => {
-        e.preventDefault();
-        if (activePiece) activePiece.tryMove(-1, 0);
-        draw();
-    });
-
-    safeAddListener('rightBtn', 'pointerdown', e => {
-        e.preventDefault();
-        if (activePiece) activePiece.tryMove(1, 0);
-        draw();
-    });
-
-    const downBtn = document.getElementById('downBtn');
-    if (downBtn) {
-        downBtn.addEventListener('pointerdown', e => {
-            e.preventDefault();
-            const now = performance.now();
-            if (now - lastDownPressTime < DOUBLE_TAP_THRESHOLD) {
-                if (!activePiece) return;
-                while (activePiece.tryMove(0, 1)) {}
-                activePiece.lockToSand();
-                activePiece = null;
-                lastDownPressTime = 0;
-                draw();
-            } else {
-                fastDrop = true;
-            }
-            lastDownPressTime = now;
-        });
-
-        downBtn.addEventListener('pointerup', e => {
-            e.preventDefault();
-            fastDrop = false;
-        });
-
-        downBtn.addEventListener('pointercancel', e => {
-            fastDrop = false;
-        });
-    } else {
-        console.warn("Element with ID 'downBtn' not found. Listeners not attached.");
-    }
-
     if (gameArea) {
         gameArea.addEventListener('touchstart', e => {
             if (e.touches.length === 1) {
@@ -1014,9 +865,9 @@ function setupInput() {
             const blockWidthInPixels = gameArea.offsetWidth / BLOCK_W;
             if (Math.abs(deltaX) > blockWidthInPixels) {
                 if (deltaX > 0) {
-                    activePiece.tryMove(1, 0);
+                    if (activePiece.tryMove(1, 0)) playVibration(); // *** ИЗМЕНЕНИЕ: Вибрация при свайпе вправо
                 } else {
-                    activePiece.tryMove(-1, 0);
+                    if (activePiece.tryMove(-1, 0)) playVibration(); // *** ИЗМЕНЕНИЕ: Вибрация при свайпе влево
                 }
                 startX = currentX;
                 hasSwipedHorizontally = true;
@@ -1024,32 +875,28 @@ function setupInput() {
             }
         }, { passive: false });
 
+        gameArea.addEventListener('touchend', e => {
+            if (paused || gameOver || !activePiece) return;
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const deltaX = endX - startX;
+            const deltaY = endY - startY;
+            const swipeThreshold = 50;
+            const tapThreshold = 25;
 
-    gameArea.addEventListener('touchend', e => {
-        if (paused || gameOver || !activePiece) return;
-        const endX = e.changedTouches[0].clientX;
-        const endY = e.changedTouches[0].clientY;
-        const deltaX = endX - startX;
-        const deltaY = endY - startY;
-        const swipeThreshold = 50;
-        const tapThreshold = 25;
-
-        // ИЗМЕНЕНИЕ: Добавляем проверку !hasSwipedHorizontally
-        // Теперь свайп вниз сработает, только если в рамках этого жеста НЕ БЫЛО горизонтального сдвига.
-        if (!hasSwipedHorizontally && deltaY > swipeThreshold && deltaY > Math.abs(deltaX) * 1.5) {
-            // Вертикальный свайп вниз
-            fastDrop = false;
-            while (activePiece && activePiece.tryMove(0, 1)) {}
-            if (activePiece) {
-                activePiece.lockToSand();
-                activePiece = null;
+            if (!hasSwipedHorizontally && deltaY > swipeThreshold && deltaY > Math.abs(deltaX) * 1.5) {
+                playVibration(); // *** ИЗМЕНЕНИЕ: Вибрация при быстром сбросе фигуры
+                fastDrop = false;
+                while (activePiece && activePiece.tryMove(0, 1)) {}
+                if (activePiece) {
+                    activePiece.lockToSand();
+                    activePiece = null;
+                }
+            } else if (!hasSwipedHorizontally && Math.abs(deltaX) < tapThreshold && Math.abs(deltaY) < tapThreshold) {
+                activePiece.tryRotate();
             }
-        } else if (!hasSwipedHorizontally && Math.abs(deltaX) < tapThreshold && Math.abs(deltaY) < tapThreshold) {
-            // Тап для ротации
-            activePiece.tryRotate();
-        }
-        draw();
-    }, { passive: false });
+            draw();
+        }, { passive: false });
     } else {
          console.warn("Element with ID 'gameArea' not found. Touch controls disabled.");
     }
@@ -1058,12 +905,12 @@ function setupInput() {
         if (gameOver || paused || !activePiece) return;
         switch (e.key) {
             case 'ArrowLeft':
-                activePiece.tryMove(-1, 0);
+                if (activePiece.tryMove(-1, 0)) playVibration(); // *** ИЗМЕНЕНИЕ: Вибрация при движении влево
                 draw();
                 e.preventDefault();
                 break;
             case 'ArrowRight':
-                activePiece.tryMove(1, 0);
+                if (activePiece.tryMove(1, 0)) playVibration(); // *** ИЗМЕНЕНИЕ: Вибрация при движении вправо
                 draw();
                 e.preventDefault();
                 break;
@@ -1071,6 +918,7 @@ function setupInput() {
                 e.preventDefault();
                 const now = performance.now();
                 if (now - lastDownPressTime < DOUBLE_TAP_THRESHOLD) {
+                    playVibration(); // *** ИЗМЕНЕНИЕ: Вибрация при быстром сбросе (двойное нажатие)
                     while (activePiece.tryMove(0, 1)) {}
                     activePiece.lockToSand();
                     activePiece = null;
@@ -1090,6 +938,7 @@ function setupInput() {
                 break;
             case ' ':
                 e.preventDefault();
+                playVibration(); // *** ИЗМЕНЕНИЕ: Вибрация при быстром сбросе (пробел)
                 while (activePiece.tryMove(0, 1)) {}
                 activePiece.lockToSand();
                 activePiece = null;
@@ -1121,34 +970,43 @@ function resizeCanvasToGrid() {
     nextCtx.imageSmoothingEnabled = false;
 }
 
-// ===== Управление экранами =====
-function showScreen(screen) {
+// Функция для показа экранов меню, паузы и т.д.
+async function showScreen(screen) {
+    // Убираем отступ у главного контейнера
+    const appContainer = document.getElementById('gameArea');
+
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('gameContainer').style.display = 'none';
-    document.getElementById('controls').style.display = 'none';
     screen.classList.add('active');
 }
 
-function showGameScreen() {
+async function showGameScreen() {
+    const appContainer = document.getElementById('gameArea');
+
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('gameContainer').style.display = 'flex';
-    document.getElementById('controls').style.display = 'flex';
 }
 
 function showSettingsScreen() {
     applySettingsToUI();
-    showScreen(settingsScreen);
+    showScreen(settingsScreen); // Эта функция уже скроет баннер
 }
 
-function togglePause() {
+// Функция паузы
+async function togglePause() {
     if (gameOver) return;
     paused = !paused;
     if (paused) {
         stopMusic();
-        showScreen(pauseScreen);
+
+        hideComboAnimation();
+
+        await showScreen(pauseScreen);
     } else {
-        showGameScreen();
+        await showGameScreen();
         if (musicOn) playMusic(music);
+        chainReactionCounter = 0; // Reset combo counter on resume
+        flickerAnimations = []; // Очистка анимаций мерцания
         countdown = 3;
         lastCountdownTime = performance.now();
         requestAnimationFrame(countdownLoop);
@@ -1157,13 +1015,13 @@ function togglePause() {
 
 function countdownLoop(now) {
     if (countdown <= 0) {
-        lastTime = now / 800;
+        lastTime = now / 1000;
         requestAnimationFrame(loop);
         return;
     }
     drawCountdown();
     const dt = (now - lastCountdownTime) / 1000;
-    if (dt >= 1) {
+    if (dt >= 0.5) { // Отсчёт каждые 0.5 сек
         countdown--;
         lastCountdownTime = now;
     }
@@ -1171,22 +1029,51 @@ function countdownLoop(now) {
 }
 
 function showGameOver() {
+    // --- FIREBASE ANALYTICS: СОБЫТИЕ КОНЦА ИГРЫ ---
+    if (window.FirebasePlugin) {
+        window.FirebasePlugin.logEvent("game_over", {
+            final_score: score,
+            final_level: level,
+            particles_cleared: removedParticlesTotal
+        });
+    }
+
     stopMusic();
     inGame = false;
+    playVibration();
     playSound(soundEffects.gameover);
     saveSettings();
     document.getElementById('gameOver').style.display = 'flex';
     document.getElementById('finalScore').textContent = score;
-
     saveHighscore(score);
 }
 
 function hideGameOver() {
     document.getElementById('gameOver').style.display = 'none';
-
 }
 
-function startNewGame() {
+function hideComboAnimation() {
+    const comboEl = document.getElementById('comboText');
+    if (comboEl) {
+        comboEl.classList.remove('animate');
+        comboEl.textContent = ''; // Полностью очищаем текст
+    }
+}
+
+async function startNewGame() {
+    console.log(`Начало новой игры.`);
+
+    if (window.FirebasePlugin) {
+        window.FirebasePlugin.logEvent("game_start", {
+            difficulty: difficultyLevel // 1 - Easy, 2 - Medium, 3 - Hard
+        });
+    }
+
+    chainReactionCounter = 0;
+    hideComboAnimation();
+    flickerAnimations = []; // Очистка анимаций мерцания
+    console.log(`%c--- НОВАЯ ИГРА --- Счётчик сброшен на: ${chainReactionCounter}`, 'color: green; font-weight: bold;');
+
     gameOver = false;
     paused = false;
     inGame = true;
@@ -1201,9 +1088,10 @@ function startNewGame() {
     nextPiece = new Piece();
     updateUI();
     hideGameOver();
-    showGameScreen();
-    playSound(soundEffects.clear);
 
+    await showGameScreen();
+
+    playSound(soundEffects.clear);
     if (musicOn) playMusic(music);
     requestAnimationFrame(loop);
 }
@@ -1214,7 +1102,7 @@ async function backToMain() {
     inGame = false;
     stopMusic();
     saveSettings();
-    showScreen(mainMenuScreen);
+    showScreen(mainMenuScreen); // Эта функция скроет баннер
     await displayHighscores();
 }
 
@@ -1249,6 +1137,8 @@ async function initEverything() {
     setupInput();
 
     startGameBtn.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
         if (!audioUnlocked) {
             audioContext.resume().then(() => {
                 audioUnlocked = true;
@@ -1257,24 +1147,54 @@ async function initEverything() {
         } else {
             startNewGame();
         }
+
     });
 
-    pauseBtn.addEventListener('click', togglePause);
-    resumeBtn.addEventListener('click', togglePause);
-    newGameBtn.addEventListener('click', () => {
-        startNewGame();
-        showGameScreen();
+    pauseBtn.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
+        togglePause();
     });
-    exitToMainBtn.addEventListener('click', backToMain);
-    restartBtn.addEventListener('click', startNewGame);
-    exitFromGameOverBtn.addEventListener('click', backToMain);
-    settingsBtn.addEventListener('click', showSettingsScreen);
+    resumeBtn.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
+        togglePause();
+    });
+    newGameBtn.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
+        startNewGame();
+    });
+    exitToMainBtn.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
+        backToMain();
+    });
+    restartBtn.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
+        startNewGame();
+    });
+    exitFromGameOverBtn.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
+        backToMain();
+    });
+    settingsBtn.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
+        showSettingsScreen();
+    });
     backToMainFromSettingsBtn.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
         saveSettings();
         showScreen(mainMenuScreen);
     });
 
     saveSettingsBtn.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
         musicOn = musicToggle.classList.contains('on');
         soundOn = soundToggle.classList.contains('on');
         vibrationOn = vibrationToggle.classList.contains('on');
@@ -1300,15 +1220,35 @@ async function initEverything() {
     });
 
     musicToggle.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
         musicToggle.classList.toggle('on');
     });
-    soundToggle.addEventListener('click', () => soundToggle.classList.toggle('on'));
-    vibrationToggle.addEventListener('click', () => vibrationToggle.classList.toggle('on'));
-    clearHighscoresToggle.addEventListener('click', () => clearHighscoresToggle.classList.toggle('on'));
+    soundToggle.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
+        soundToggle.classList.toggle('on');
+    });
+    vibrationToggle.addEventListener('click', () => {
+        // playSound(soundEffects.click); // <-- ЗДЕСЬ НЕ НУЖНО, так как звук проиграется при включении вибрации ниже
+        vibrationToggle.classList.toggle('on');
+        vibrationOn = vibrationToggle.classList.contains('on');
+        if (vibrationOn) {
+            playSound(soundEffects.click); // <-- Звук и вибрация одновременно при включении
+            playVibration();
+        }
+    });
+    clearHighscoresToggle.addEventListener('click', () => {
+        playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+        playVibration();
+        clearHighscoresToggle.classList.toggle('on');
+    });
 
     const difficultyButtons = document.querySelectorAll('.difficulty-btn');
     difficultyButtons.forEach(btn => {
         btn.addEventListener('click', () => {
+            playSound(soundEffects.click); // <-- ДОБАВЛЕНО
+            playVibration();
             difficultyButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             difficultyLevel = parseInt(btn.dataset.level, 10);
@@ -1318,12 +1258,22 @@ async function initEverything() {
 
     await displayHighscores();
 }
+
 // Оборачиваем всю инициализацию в одну функцию
 function initGame() {
     return new Promise(resolve => {
         // Эта функция будет запускать всю основную логику
-        const startApp = async () => {
+            const startApp = async () => {
             console.log("Приложение готово. Запускаем инициализацию.");
+
+            // --- FIREBASE ANALYTICS ИНИЦИАЛИЗАЦИЯ ---
+            if (window.FirebasePlugin) {
+                // Включаем сбор данных аналитики
+                window.FirebasePlugin.setAnalyticsCollectionEnabled(true);
+                // Отправляем событие, что приложение было запущено
+                window.FirebasePlugin.logEvent("app_start", {});
+                console.log("Firebase Analytics включен.");
+            }
 
             // Вызываем платформо-зависимые настройки
             if (window.cordova) {

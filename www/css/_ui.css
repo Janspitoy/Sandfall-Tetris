@@ -1,21 +1,15 @@
 /* Общие стили для экранов меню */
 
-@import url('_ui.css');
-
-
 /* 1. Фон для экрана загрузки */
 #loadingScreen {
-    /* Используем вашу картинку как фон */
     background-image: url('../img/splash.png');
     background-size: cover;
     background-position: center center;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-
 }
 
-/* Добавляем тень к логотипу для лучшей читаемости на фоне */
 #loadingScreen .logo {
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.6);
 }
@@ -31,11 +25,9 @@
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), 0 2px 3px rgba(0, 0, 0, 0.3);
     padding: 4px;
     margin-top: 570px !important;
-    position: relative; /* Обязательно для позиционирования текста */
-
+    position: relative;
 }
 
-/* Стили для текста с процентами на экране загрузки */
 #loadingScreen .progress-label {
     position: absolute;
     left: 50%;
@@ -45,21 +37,14 @@
     font-size: 16px;
     font-weight: bold;
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
-    z-index: 2; /* Убедимся, что текст поверх прогресс-бара */
-    pointer-events: none; /* Текст не должен мешать кликам */
+    z-index: 2;
+    pointer-events: none;
 }
 
-/* _ui.css */
-
-/* Найдите этот блок */
 #loadingScreen .progress-bar {
     height: 100%;
-    width: 0%; /* Начальная ширина */
-
-    /* Основной цвет в стиле игры */
+    width: 0%;
     background-color: var(--color-secondary);
-
-    /* "Песочная" текстура с помощью градиента */
     background-image: linear-gradient(
         45deg,
         rgba(255,255,255,0.15) 25%,
@@ -71,14 +56,9 @@
         transparent
     );
     background-size: 20px 20px;
-
-    /* 👇 ВОТ ЭТУ СТРОКУ НУЖНО УДАЛИТЬ */
-    transition: width 1.5s cubic-bezier(0.65, 0, 0.35, 1);
-
-    /* Легкое свечение, чтобы бар выделялся */
+    border-radius: 8px;
     box-shadow: inset 0 -1px 1px rgba(0,0,0,0.3), 0 0 10px rgba(244, 194, 68, 0.7);
 }
-
 
 .screen {
     position: absolute;
@@ -124,75 +104,6 @@
     from { opacity: 0; transform: scale(0.9); }
     to { opacity: 1; transform: scale(1); }
 }
-
-.progress-container {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%; /* Ширина относительно родительского блока */
-    margin: 0 auto 10px auto; /* Центрирование и отступ снизу */
-    color: #fff;
-    font-size: 14px;
-    font-weight: bold;
-    box-sizing: border-box; /* Чтобы padding не влиял на общую ширину */
-
-}
-
-.progress-bar-wrapper {
-    flex-grow: 1;
-    height: 25px;
-    background-color: #975a34;
-    border-radius: 10px;
-    margin: 0 10px;
-    position: relative; /* Важно для позиционирования текста */
-    overflow: hidden;
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
-}
-
-.progress-bar {
-    width: 0%;
-    height: 100%;
-    transition: width 0.4s ease-out, background 0.5s ease-in-out;
-    border-radius: 8px;
-}
-
-
-.progress-label {
-    position: absolute; /* <-- ГЛАВНОЕ ИЗМЕНЕНИЕ */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #e0d0b0;
-    font-weight: bold;
-    font-size: 14px;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-}
-
-/* Общие стили для текстовых меток по краям */
-#progress-start, #progress-end {
-    width: 50px; /* Немного увеличим ширину для отступов */
-    flex-shrink: 0;
-    padding: 3px 6px; /* Внутренние отступы (сверху/снизу и по бокам) */
-    background-color: rgba(116, 81, 15, 0.5); /* Полупрозрачный фон */
-    border-radius: 8px; /* Закругленные края */
-    border: 1px solid rgba(116, 81, 15, 0.8); /* Тонкая светлая рамка */
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2); /* Небольшая тень */
-    color: #e0d0b0;
-}
-
-/* Выравниваем левую метку по левому краю */
-#progress-start {
-    text-align: left;
-    padding-left: 20px;
-}
-
-/* Выравниваем правую метку по правому краю */
-#progress-end {
-    text-align: right;
-    padding-right: 20px;
-}
-
 
 .logo {
     font-size: clamp(20px, 8vw, 36px);
@@ -389,22 +300,19 @@
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.85);
-    border: 2px solid var(--color-background-dark);
     box-shadow: var(--shadow-medium);
-    display: none; /* Hidden by default */
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 12px;
-    z-index: 1000; /* Ensure it appears above other elements */
+    z-index: 1000;
 }
 
-/* Show game over screen when 'show' class is added */
 .game-over.show {
-    display: flex; /* Use flex to match flex-direction */
+    display: flex;
 }
 
-/* Style the game over heading */
 .game-over h2 {
     color: var(--color-danger);
     font-size: clamp(16px, 5vw, 28px);
@@ -412,13 +320,11 @@
     margin-bottom: 0;
 }
 
-/* Style the game over paragraph */
 .game-over p {
     font-size: clamp(12px, 3vw, 16px);
     margin-bottom: 0;
 }
 
-/* Style the action buttons */
 .game-over .action-btn {
     background-color: var(--color-primary);
     width: 100%;
@@ -427,7 +333,6 @@
     border-color: var(--color-primary);
 }
 
-/* Ensure other elements support the transition */
 .controls,
 .game-wrapper,
 .ui-panel {
@@ -446,7 +351,6 @@
     box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.4);
 }
 
-/* Стили для круга-переключателя */
 .toggle-circle {
     width: 16px;
     height: 16px;
@@ -458,12 +362,10 @@
     transition: left 0.3s;
 }
 
-/* Стили для включенного состояния */
 .toggle-btn.on {
     background-color: #ab200e;
 }
 
-/* Положение круга во включенном состоянии */
 .toggle-btn.on .toggle-circle {
     left: 22px;
 }
@@ -471,12 +373,12 @@
 /* Стили для всплывающего комбо-текста */
 .combo-text {
     position: absolute;
-    top: 40%; /* Расположение по вертикали */
+    top: 40%;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 2.5em; /* Крупный размер */
-    font-weight: bold;
-    color: #ffdd59; /* Яркий цвет */
+    font-size: 1.5em;
+    font-weight: 400;
+    color: #ffdd59;
     text-shadow:
         -2px -2px 0 #c0392b,
          2px -2px 0 #c0392b,
@@ -485,18 +387,16 @@
          -2px 0 0 #c0392b,
          2px 0 0 #c0392b,
          0 2px 0 #c0392b,
-         0 -2px 0 #c0392b; /* Эффектная обводка */
-    pointer-events: none; /* Чтобы текст не мешал кликам/касаниям */
-    opacity: 0; /* Изначально невидим */
+         0 -2px 0 #c0392b;
+    pointer-events: none;
+    opacity: 0;
     z-index: 100;
 }
 
-/* Класс для запуска анимации */
 .combo-text.animate {
     animation: combo-animation 1.2s ease-out forwards;
 }
 
-/* Сама анимация: появление, удержание, исчезновение */
 @keyframes combo-animation {
     0% {
         opacity: 0;
@@ -504,10 +404,10 @@
     }
     20% {
         opacity: 1;
-        transform: translateX(-50%) scale(1.1); /* Эффект "выпрыгивания" */
+        transform: translateX(-50%) scale(1.1);
     }
     40% {
-        transform: translateX(-50%) scale(1.0); /* Возврат к нормальному размеру */
+        transform: translateX(-50%) scale(1.0);
     }
     80% {
         opacity: 1;
@@ -515,6 +415,45 @@
     }
     100% {
         opacity: 0;
-        transform: translateX(-50%) scale(1.0) translateY(-20px); /* Исчезает, улетая вверх */
+        transform: translateX(-50%) scale(1.0) translateY(-20px);
     }
+}
+
+/* style.css */
+.ad-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: none; /* Скрыт по умолчанию */
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    color: white;
+}
+
+.ad-overlay-content {
+    text-align: center;
+}
+
+.ad-overlay p {
+    margin-top: 15px;
+    font-size: 1.2em;
+}
+
+.spinner {
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top: 4px solid #fff;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }

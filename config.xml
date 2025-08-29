@@ -1,13 +1,14 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="com.example.sandfalltetris" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cdv="http://cordova.apache.org/ns/1.0">
-    <name>Sandfall Tetris</name>
-    <description>Physics-based Tetris where blocks fall like sand</description>
-    <author email="your.email@example.com" href="https://yourwebsite.com">Your Name</author>
+<widget id="com.touchcraft.sandfallblocks" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>Sandfall Blocks</name>
+    <description>Physics-based Figures where blocks fall like sand</description>
+    <author email="kliuchyshcheivan@gmail.com" href="https://yourwebsite.com">Ivan Kliuchyshche</author>
     <content src="index.html" />
+    <allow-intent href="http://*/*" />
+    <allow-intent href="https://*/*" />
+    <access origin="*" />
     <platform name="android">
-        <allow-intent href="http://*/*" />
-        <allow-intent href="https://*/*" />
-        <access origin="*" />
+
         <preference name="GradlePluginKotlinEnabled" value="true" />
         <config-file parent="/manifest" target="AndroidManifest.xml">
             <uses-permission android:name="android.permission.INTERNET" />
@@ -23,11 +24,12 @@
         <icon density="xxhdpi" src="resources/android/icon/drawable-xxhdpi-icon.png" />
         <icon density="xxxhdpi" src="resources/android/icon/drawable-xxxhdpi-icon.png" />
 
-        <hook src="scripts/copy_splash_icon.js" type="before_prepare" />
+        <preference name="GradlePluginKotlinVersion" value="2.0.21" />
+        <preference name="GradlePluginGoogleServicesEnabled" value="true" />
 
         <preference name="AndroidWindowSplashScreenAnimatedIcon" value="resources/android/splash/splash_icon.xml" />
         <preference name="AndroidWindowSplashScreenBackground" value="#3F1008" />
-        <preference name="SplashScreenDelay" value="1000" />
+        <preference name="SplashScreenDelay" value="1500" />
         <preference name="FadeSplashScreenDuration" value="250" />
         <preference name="SplashMaintainAspectRatio" value="true" />
     </platform>
@@ -89,7 +91,9 @@
         <splash height="2732" src="resources/ios/splash/Default@2x~universal~anyany.png" width="2732" />
     </platform>
     <plugin name="admob-plus-cordova" spec="2.0.0-alpha.19">
-        <variable name="APP_ID_ANDROID" value="ca-app-pub-3940256099942544~3347511713" />
+        <variable name="APP_ID_ANDROID" value="ca-app-pub-4411114348896099~1525807767" />
         <variable name="APP_ID_IOS" value="ca-app-pub-3940256099942544~1458002511" />
     </plugin>
+    <plugin name="cordova-plugin-vibration" spec="^3.1.1" />
+    <plugin name="cordova-plugin-firebasex" spec="^18.0.7" />
 </widget>
